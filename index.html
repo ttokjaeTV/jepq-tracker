@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>JEPQ 분배 트래커 · 똑재TV</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+html{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}
+/* Layout: 한 열 대시보드 — 요약 숫자 → 연간 막대 → 월 격자 → 구성종목·ELN → 국내 JEPQ형 비교 → 출처 */
+:root{
+  --bg:#F3F5F6; --surface:#FFFFFF; --ink:#16232C; --muted:#5E6E78; --line:#DCE2E6; --soft:#EEF2F4;
+  --accent:#A8661B; --accent-soft:#F6E9D7; --bar:#C98A3A; --bar-partial:#E7C79E; --est:#F3E3CB; --est-line:#A8661B; --avg:#2F5D8A; --other:#CBD3D8;
+  --p1:#A8661B; --p2:#C98A3A; --p3:#E0B36A; --p4:#2F5D8A; --p5:#4F7FAF; --p6:#86A9CC; --p7:#17784A; --p8:#4E9E72; --p9:#8CC3A2; --p10:#7A5C8E; --eln:#B5485A;
+  --up:#17784A; --up-soft:#E2F2E9; --down:#B4322B; --down-soft:#F8E4E2;
+  --f-body:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-num:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11181D; --surface:#182229; --ink:#E6ECEF; --muted:#94A4AE; --line:#2A3740; --soft:#1E2A32;
+  --accent:#E3A55A; --accent-soft:#3A2C1B; --bar:#D79A4E; --bar-partial:#6B5132; --est:#3A2E20; --est-line:#E3A55A; --avg:#8DB4DE; --other:#3A4852; --eln:#E07A8A;
+  --up:#5CC48D; --up-soft:#173327; --down:#F0867E; --down-soft:#3B1E1C; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11181D; --surface:#182229; --ink:#E6ECEF; --muted:#94A4AE; --line:#2A3740; --soft:#1E2A32;
+  --accent:#E3A55A; --accent-soft:#3A2C1B; --bar:#D79A4E; --bar-partial:#6B5132; --est:#3A2E20; --est-line:#E3A55A; --avg:#8DB4DE; --other:#3A4852; --eln:#E07A8A;
+  --up:#5CC48D; --up-soft:#173327; --down:#F0867E; --down-soft:#3B1E1C; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;letter-spacing:-.005em;word-break:keep-all;overflow-wrap:break-word}
+p,.cap,.s,.hint,.sub,.en,dd,dt,li{text-wrap:pretty}
+.stat .s .ln{display:block;text-wrap:balance}
+.hint b{white-space:nowrap}
+.wrap{max-width:1040px;margin:0 auto;padding-inline:16px;padding-block:28px 56px;display:flex;flex-direction:column;gap:28px}
+.hub-back{align-self:flex-start;margin-bottom:-18px;font-size:13px;color:var(--muted);text-decoration:none}.hub-back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;border-bottom:2px solid var(--ink);padding-bottom:14px}
+h1{font-size:30px;line-height:1.15;margin:0;font-weight:700;letter-spacing:-.02em;text-wrap:balance}
+h1 small{display:block;font-size:13px;font-weight:500;color:var(--muted);letter-spacing:.02em;margin-bottom:6px}
+.stamp{font-family:var(--f-num);font-size:12px;color:var(--muted);text-align:right;line-height:1.6}
+.stamp b{color:var(--ink);font-weight:600}
+h2{font-size:18px;margin:0;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.sec{display:flex;flex-direction:column;gap:12px;min-width:0}
+.sec-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px}
+.cap{font-size:13px;color:var(--muted)}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+/* hero */
+.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:760px){.hero{grid-template-columns:1fr}}
+.latest{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.latest .lbl{font-size:12px;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.big{font-family:var(--f-num);font-size:46px;font-weight:700;line-height:1;letter-spacing:-.02em}
+.big span{font-size:16px;color:var(--muted);font-weight:500;margin-left:6px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-size:13px;padding:3px 10px;border-radius:999px;background:var(--soft);color:var(--ink);white-space:nowrap}
+.chip.up{background:var(--up-soft);color:var(--up)} .chip.down{background:var(--down-soft);color:var(--down)}
+.kv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;border-top:1px solid var(--line);padding-top:12px}
+.kv div{min-width:0} .kv dt{font-size:12px;color:var(--muted)} .kv dd{margin:2px 0 0;font-family:var(--f-num);font-size:15px;font-weight:600}
+@media (max-width:420px){.kv{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stat{background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.stat .t{font-size:12px;color:var(--muted)}
+.stat .v{font-family:var(--f-num);font-size:24px;font-weight:700;line-height:1.2}
+.stat .s{font-size:12px;color:var(--muted)}
+.stat .mini{margin-top:auto;padding-top:10px;display:flex;flex-direction:column;gap:4px}
+.stat .mini svg{display:block;width:100%;height:36px}
+.stat .axg{display:grid;font-size:11px;color:var(--muted);font-family:var(--f-num);text-align:center}
+.stat .ax{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-family:var(--f-num)}
+.stat .hint{font-size:12px;line-height:1.5;color:var(--ink);background:var(--soft);border-radius:6px;padding:5px 8px}
+.stat .hint b{font-weight:700}
+.stat .strip{display:flex;gap:3px} .stat .strip i{flex:1;height:12px;border-radius:2px;background:var(--up)} .stat .strip i.dn{background:var(--down)}
+.stat .hb{display:grid;grid-template-columns:5.5em minmax(0,1fr) 3.6em;gap:6px;align-items:center;font-size:12px}
+.stat .hb span:first-child{color:var(--muted)} .stat .hb .tr{height:8px;background:var(--soft);border-radius:4px;overflow:hidden} .stat .hb .tr i{display:block;height:100%}
+.stat .hb b{font-family:var(--f-num);font-weight:600;text-align:right}
+.stat .chips2{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px} .stat .chips2 span{display:flex;flex-direction:column;align-items:center;line-height:1.25;font-size:11.5px;padding:3px 2px;border-radius:6px;background:var(--down-soft);color:var(--down);font-family:var(--f-num);white-space:nowrap} .stat .chips2 span b{font-weight:700;color:var(--ink);font-size:11px}
+@media (max-width:560px){.stat .chips2{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stat .dv{display:grid;grid-template-columns:2.4em minmax(0,1fr) 4.2em;gap:6px;align-items:center;font-size:12px}
+.stat .dv>span:first-child{color:var(--muted)} .stat .dv b{font-family:var(--f-num);font-weight:600;text-align:right}
+.stat .dv .tr{position:relative;height:10px} .stat .dv .tr::before{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;border-left:1px solid var(--line)}
+.stat .dv .tr i{position:absolute;top:0;height:100%;border-radius:2px}
+.stat .dv.tot{border-top:1px solid var(--line);padding-top:5px;margin-top:1px} .stat .dv.tot>span:first-child{color:var(--ink);font-weight:600}
+.stat .lg{display:flex;gap:10px;font-size:11px;color:var(--muted)} .stat .lg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px}
+.v.up{color:var(--up)} .v.down{color:var(--down)}
+/* chart */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+svg text{font-family:var(--f-num);fill:var(--muted);font-variant-numeric:tabular-nums;font-weight:500}
+/* tables */
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{font-size:12px;font-weight:600;color:var(--muted);text-align:right;padding:8px 10px;border-bottom:1px solid var(--ink);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;vertical-align:top}
+td .d{display:block;font-size:11.5px;margin-top:1px}
+.d.up{color:var(--up)} .d.down{color:var(--down)} .d.flat{color:var(--muted)}
+tr.partial td{background:var(--soft)}
+td.yr{font-family:var(--f-num);font-weight:600}
+td.na{color:var(--line)}
+tr.ref td{background:var(--accent-soft)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{font:inherit;font-size:13px;border:0;background:transparent;color:var(--muted);padding:6px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.notes{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:16px}
+.notes p{margin:0;max-width:72ch}
+.notes a{color:var(--accent)}
+.hold{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:16px;align-items:stretch}
+.hcol{display:flex;flex-direction:column;gap:16px;min-width:0}
+.hcol>.donut-wrap{flex:1 1 auto}
+.hcol .h3,.hpanel .h3{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+@media (max-width:720px){.hold{grid-template-columns:1fr}}
+.donut-wrap{display:flex;align-items:center;justify-content:center} .donut-wrap svg{width:100%;max-width:300px;height:auto}
+.ahbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 12px}
+.htoggle{display:block;width:100%;margin-top:12px;padding:9px 12px;font:inherit;font-size:14px;font-weight:600;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.htoggle:hover{border-color:var(--muted)}
+.htoggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hold.open{align-items:start}
+
+.ahbar input{font:inherit;font-size:14px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);min-width:0;flex:1 1 220px;max-width:340px}
+.ahbar input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.htable{table-layout:fixed}
+.htable th,.htable td{text-align:left;vertical-align:middle}
+.htable th:nth-child(1),.htable td:nth-child(1){width:52px;text-align:center}
+.htable th:nth-child(3),.htable td:nth-child(3){width:28%}
+.htable th:nth-child(4),.htable td:nth-child(4){width:84px;text-align:right}
+.htable td:nth-child(2){white-space:normal}
+.htable .tk{color:var(--muted);font-size:12px;margin-left:6px}
+.htable .sw{flex:none}
+.htable .nm{display:flex;align-items:center;gap:0}
+@media (max-width:560px){.htable th:nth-child(3),.htable td:nth-child(3){display:none} .htable .nm{flex-wrap:wrap}}
+.htable tr.other td{color:var(--muted)}
+.htable tr.other td:nth-child(4){color:var(--ink)}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.hmbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0}
+.hmbar select{font:inherit;font-size:14px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
+.hmbar select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.h3{font-size:14px;margin:0 0 10px;font-weight:700}
+.h3 .cap{font-weight:400;font-size:12px;margin-left:6px}
+.srow .sc.up{color:var(--up)} .srow .sc.down{color:var(--down)}
+.hmmv{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:14px;font-size:13px}
+.hmmv b{margin-right:2px}
+.hmmv span.t{padding:2px 8px;border-radius:999px;font-size:12.5px}
+.hmmv .in{background:var(--up-soft);color:var(--up)} .hmmv .out{background:var(--down-soft);color:var(--down)}
+.hmtrend svg{width:100%;height:190px;display:block;cursor:pointer}
+.hmyrs{display:grid;font-size:11px;color:var(--muted);margin-top:4px}
+.lgd{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--muted);margin-top:10px}
+.lgd i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+tr.sum td{border-top:1px solid var(--ink);font-weight:700}
+.sectors{display:flex;flex-direction:column;gap:10px}
+.srow{display:grid;grid-template-columns:92px minmax(0,1fr) 60px 58px;gap:10px;align-items:center;font-size:14px}
+.srow .sc{color:var(--muted);font-size:12px;text-align:right}
+.srow .trk{height:10px}
+.srow .trk{height:8px;background:var(--soft);border-radius:4px;overflow:hidden} .srow .fil{height:100%;background:var(--bar)}
+.srow .pv{font-family:var(--f-num);text-align:right}
+.pstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
+@media (max-width:640px){.pstats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.pstats div{min-width:0} .pstats dt{font-size:12px;color:var(--muted)} .pstats dd{margin:2px 0 0;font-family:var(--f-num);font-size:17px;font-weight:600}
+.pstats dd small{font-size:12px;font-weight:500;color:var(--muted);margin-left:4px}
+.prow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px;font-size:14px}
+.prow label{color:var(--muted);font-size:13px}
+.prow input[type=date]{font:inherit;font-size:14px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font-variant-numeric:tabular-nums}
+.prow input[type=date]:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.estbox{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.estbox .eh{margin:0 0 8px;font-weight:700;font-size:15px}
+.estbox ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.estbox li{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;font-size:14px}
+.estbox li b{font-weight:600;min-width:11em}
+.estbox li .num{font-weight:700;font-size:16px}
+.estbox li .sub{color:var(--muted);font-size:13px;flex-basis:100%;padding-left:0}
+.estbox .up{color:var(--up);font-weight:600} .estbox .down{color:var(--down);font-weight:600}
+.estbox .en{margin:10px 0 0;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px}
+@media (min-width:720px){.estbox li .sub{flex-basis:auto}}
+.ptip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;line-height:1.5;box-shadow:0 2px 8px rgba(0,0,0,.08);white-space:nowrap}
+.next{background:var(--accent-soft);border-radius:8px;padding:12px 14px;font-size:14px;line-height:1.5;display:flex;flex-direction:column;gap:8px}
+.next .nh{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.next .nh b{font-weight:700} .next .nh .q{color:var(--muted)}
+.next .tbd{margin-left:auto;font-size:12px;font-weight:600;color:var(--accent);background:var(--surface);border:1px solid var(--accent);border-radius:999px;padding:1px 9px;white-space:nowrap}
+.next .nd{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0}
+.next .nd div{min-width:0} .next .nd dt{font-size:12px;color:var(--muted)} .next .nd dd{margin:1px 0 0;font-family:var(--f-num);font-size:16px;font-weight:600}
+.next .cap{display:block;font-size:12px;line-height:1.55}
+.offi{border-top:1px solid var(--line);padding-top:12px}
+.offi .oh{margin:0 0 8px;font-size:12px;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.offi dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 8px}
+.offi dl div{min-width:0} .offi dt{font-size:12px;color:var(--muted)}
+.offi dd{margin:2px 0 0;font-family:var(--f-num);font-size:20px;font-weight:700;line-height:1.3}
+.offi dd small{display:block;font-size:12px;font-weight:500;color:var(--muted)}
+.offi p.cap{margin:0;font-size:12px;line-height:1.55}
+.src{margin:auto 0 0;font-size:12px;line-height:1.55;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+#krq{table-layout:fixed;min-width:640px}
+#krq th:first-child,#krq td:first-child{width:96px}
+#krq td .d{white-space:normal}
+.knote{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:13.5px;line-height:1.65;color:var(--ink)}
+.knote p{margin:0 0 6px} .knote p:last-child{margin:0;color:var(--muted)} .knote .kh{font-weight:700;font-size:14.5px}
+.knote ol{margin:4px 0 8px;padding-left:20px;display:flex;flex-direction:column;gap:4px} .knote ol b{font-weight:600}
+.rbnote{margin:0} .rbnote b{color:var(--ink);font-weight:600}
+#qtable{min-width:960px;font-size:13px} #qtable th,#qtable td{padding-left:5px;padding-right:5px} #qtable td .d{white-space:nowrap}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <a href="https://ttokjaetv.github.io/" class="hub-back">← 똑재TV 계산기 모음</a>
+  <header>
+    <h1><small>JPMorgan Nasdaq Equity Premium Income ETF</small>JEPQ 분배 트래커</h1>
+    <div class="stamp">반영 범위 <b id="rangeTxt"></b><br>갱신 <b id="updTxt"></b><br><a href="downloads/jepq_dividend_tracker.xlsx" style="color:var(--accent)">엑셀 내려받기</a></div>
+  </header>
+
+  <section class="hero" aria-label="최신 분배 요약">
+    <div class="latest">
+      <div class="lbl" id="latestLbl"></div>
+      <div class="big" id="latestAmt"></div>
+      <div class="chips" id="latestChips"></div>
+      <div class="next" id="nextDiv"></div>
+      <dl class="kv" id="latestKv"></dl>
+      <div class="offi" id="offi" hidden></div>
+      <p class="src" id="latestSrc"></p>
+    </div>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head"><h2>주가 흐름</h2>
+      <div class="seg" role="group" aria-label="기간 선택" id="prange">
+        <button data-y="1" aria-pressed="false">1년</button><button data-y="3" aria-pressed="false">3년</button><button data-y="0" aria-pressed="true">상장 이후</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="prow"><label for="pFrom">시작일</label><input type="date" id="pFrom"><span>~</span><label for="pTo">종료일</label><input type="date" id="pTo"><span class="cap">날짜를 바꾸면 바로 다시 계산됩니다 (휴장일이면 가장 가까운 거래일 기준)</span></div>
+      <dl class="pstats" id="pstats"></dl>
+      <div class="scroll" style="position:relative"><svg id="pchart" role="img" aria-label="JEPQ 주가 흐름 선그래프"></svg><div class="ptip" id="ptip" hidden></div></div>
+      <div class="legend"><span><i style="background:var(--ink);height:2px;vertical-align:4px"></i>주가 (종가)</span><span><i style="background:var(--up);height:2px;vertical-align:4px"></i>분배 재투자 시 (같은 출발점에서 분배금을 다시 산 경우)</span></div>
+    </div>
+    <span class="cap" id="pcap"></span>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head"><h2>연간 분배 (1주 기준, USD)</h2><span class="cap">막대 위 숫자는 연간 합계 · 연도는 지급일 기준</span></div>
+    <div class="panel"><div class="scroll"><svg id="annual" role="img" aria-label="연도별 JEPQ 분배 막대그래프"></svg></div>
+      <div class="legend"><span><i style="background:var(--bar)"></i>확정</span><span><i style="background:var(--bar-partial)"></i>상장 첫해 (7회)</span><span><i style="background:var(--est);outline:1px dashed var(--est-line)"></i>예상 (남은 달 = 올해 확정된 달들의 평균)</span><span><i style="background:none;border-top:2px dashed var(--avg);height:0;width:16px;vertical-align:3px"></i>평균(12회 확정 연도)</span></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head"><h2>연간 분배 증감률</h2><span class="cap">전년 대비, 12회 모두 확정된 해끼리만</span></div>
+    <div class="panel"><div class="scroll"><svg id="growth" role="img" aria-label="연도별 JEPQ 분배 증감률 막대그래프"></svg></div>
+      <div class="legend"><span><i style="background:var(--up)"></i>확정 (증가)</span><span><i style="background:var(--down)"></i>확정 (감소)</span><span><i style="background:var(--est);outline:1px dashed var(--est-line)"></i>예상</span></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head"><h2>월별 분배 추이 (USD)</h2><span class="cap" id="qchartCap"></span></div>
+    <div class="panel"><div class="scroll"><svg id="qchart" role="img" aria-label="월별 JEPQ 분배 막대그래프"></svg></div>
+      <div class="legend"><span><i style="background:var(--bar)"></i>확정</span><span><i style="background:var(--est);outline:1px dashed var(--est-line)"></i>예상 (남은 달 = 올해 확정된 달들의 평균)</span><span><i style="background:none;border-top:2px dashed var(--avg);height:0;width:16px;vertical-align:3px"></i>전체 평균(확정분)</span></div>
+    </div>
+    <div class="estbox" id="estNote"></div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head"><h2>월별 분배</h2>
+      <div class="seg" role="group" aria-label="단위 선택">
+        <button id="u-usd" aria-pressed="true">USD</button><button id="u-krw" aria-pressed="false">원화 세전</button><button id="u-net" aria-pressed="false">원화 세후</button>
+      </div>
+    </div>
+    <div class="panel scroll"><table id="qtable" class="mtable"></table></div>
+    <span class="cap" id="qcap"></span>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head"><h2>구성종목 TOP 10 · ELN</h2><span class="cap" id="holdAsOf"></span></div>
+    <div class="hold">
+      <div class="hcol">
+        <div class="panel donut-wrap"><svg id="donut" viewBox="0 0 300 300" role="img" aria-label="JEPQ 상위 10종목, ELN, 기타 비중 도넛 차트"></svg></div>
+        <div class="panel"><h3 class="h3">섹터 비중<span class="cap">ELN·현금 포함 전체 기준</span></h3><div id="sectors" class="sectors"></div></div>
+      </div>
+      <div class="panel hpanel">
+        <h3 class="h3">TOP 10<span class="cap" id="holdTopCap"></span></h3>
+        <div class="ahbar" id="ahbar" hidden><label for="ahq" class="cap">검색</label><input id="ahq" type="search" placeholder="종목명·티커·섹터 (예: 애플, NVDA, ELN)"><span class="cap" id="ahcnt"></span></div>
+        <div class="scroll"><table id="holdTable" class="htable"></table></div>
+        <button type="button" class="htoggle" id="hToggle" aria-expanded="false"></button>
+      </div>
+    </div>
+    <span class="cap">ELN(주가연계채권)은 JEPQ가 나스닥100 콜옵션 매도 수익을 받으려고 담는 채권입니다. 분배금의 상당 부분이 여기서 나옵니다. 비중 = 시장가치 ÷ 전체 시장가치(합계 100%).</span>
+  </section>
+
+  <section class="sec" id="hmSec">
+    <div class="sec-head"><h2>월별 비중 기록</h2><span class="cap" id="hmCap"></span></div>
+    <div class="hmbar"><label for="hmSel" class="cap">기준</label><select id="hmSel"></select><span class="cap" id="hmBasis"></span></div>
+    <p class="cap rbnote" id="hmRebal"></p>
+    <div class="hold">
+      <div class="hcol">
+        <div class="panel donut-wrap"><svg id="hmDonut" viewBox="0 0 300 300" role="img" aria-label="선택한 달의 JEPQ 상위 10종목, ELN, 기타 비중 도넛 차트"></svg></div>
+        <div class="panel"><h3 class="h3">섹터 비중<span class="cap" id="hmVs"></span></h3><div id="hmSectors" class="sectors"></div></div>
+      </div>
+      <div class="panel hpanel">
+        <h3 class="h3">TOP 10<span class="cap" id="hmTopCap"></span></h3>
+        <div class="scroll"><table id="hmTop" class="htable"></table></div>
+        <div id="hmMoves"></div>
+      </div>
+    </div>
+    <div class="panel hmtrend">
+      <div class="sec-head" style="margin-bottom:10px"><h2 style="font-size:15px">섹터·ELN 비중 추이</h2><span class="cap">매월 처음 받은 공식 보유종목 · 막대를 누르면 그 달로 이동</span></div>
+      <svg id="hmTrend" viewBox="0 0 1000 190" preserveAspectRatio="none" role="img" aria-label="월별 섹터·ELN 비중 누적 막대"></svg>
+      <div class="hmyrs" id="hmYrs"></div>
+      <div class="lgd" id="hmLegend"></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head"><h2>국내 JEPQ형(나스닥100 커버드콜) ETF 비교</h2><span class="cap" id="krAsOf"></span></div>
+    <div class="panel scroll"><table id="krtable"></table></div>
+    <span class="cap" id="krCostCap"></span>
+    <div class="panel"><div class="scroll"><table id="krq"></table></div><button type="button" class="htoggle" id="krqToggle" aria-expanded="false"></button></div>
+    <span class="cap">12개월 분배율 = 최근 12개월 분배금 합 ÷ 최근 분배 때 1좌 가격(작은 숫자 · FunETF 회차 분배율로 역산). JEPQ 행은 최근 12회 분배 합 ÷ 최근 배당락일 종가입니다.</span>
+    <span class="cap">월 합계는 국내 ETF는 분배 기준일(매월 말)이 속한 달, JEPQ는 지급일이 속한 달로 묶었습니다. 국내 ETF의 월말 기준일 분배금은 다음 달 초에 들어오므로, 같은 줄의 JEPQ 분배와 입금 시기가 비슷합니다. 작은 숫자는 작년 같은 달 대비입니다.</span>
+    <div class="knote" id="krNote"></div>
+  </section>
+
+  <footer class="notes">
+    <p><b>기준</b> · JEPQ는 매월 분배합니다. 1월분은 전년 12월 말에 배당락하고 1월 초에 지급하므로, 이 페이지의 연도·월은 모두 <b>지급일</b> 기준입니다. 연간 증감률은 12회 분배가 모두 확정된 해만 계산합니다(2022년은 5월 상장 첫해라 7회). 분배금은 주식 배당과 ELN(콜옵션 매도) 수익에서 나와 매달 달라지며, 증감은 '배당 성장'보다 옵션 프리미엄 변화의 영향이 큽니다.</p>
+    <p><b>세금</b> · JEPQ 직접투자 분배금은 미국에서 15% 원천징수되며 국내 추가 원천징수는 없습니다(금융소득 연 2,000만원 초과 시 종합과세 합산). 국내상장 해외주식형 ETF 분배금은 배당소득세 15.4% 과세 대상입니다.</p>
+    <p><b>출처</b> · 최신 분배·공식 수익률·NAV: <a href="https://am.jpmorgan.com/us/en/asset-management/adv/products/jpmorgan-nasdaq-equity-premium-income-etf-etf-shares-46654q203" target="_blank" rel="noopener">J.P. Morgan Asset Management JEPQ 상품 페이지</a>(각 수치 옆 기준일) · 분배 이력(2022.06~): Nasdaq.com 분배 이력(Yahoo Finance·stockanalysis와 교차 확인, JPMorgan은 과거 분배 파일을 따로 주지 않음) · 배당락일 종가·주가 흐름: Nasdaq.com 종가, 분배 재투자선은 분배금으로 직접 계산 · 지급일 환율: 하나은행 매매기준율 · 구성종목: JPMorgan 공식 일별 보유종목 엑셀(월별 기록은 2026-10부터 매월 처음 받은 파일) · 분배 예정일: J.P. Morgan ETF Dividend Calendar(예정일은 바뀔 수 있음) · 국내 ETF 분배·상장일·기초지수: FunETF · 국내 ETF 실부담비용: 금융투자협회 전자공시 펀드별 보수비용비교. 국내 ETF 비교표의 비용은 총보수가 아니라 기타비용·매매중개수수료까지 더한 실부담비용입니다.</p>
+    <p>특정 종목의 매수·매도를 권하는 자료가 아닙니다. 과거 분배가 미래 분배를 보장하지 않습니다.</p>
+    <p><a href="https://www.youtube.com/@ttok_jae" target="_blank" rel="noopener">똑재TV 구독하기</a> · <a href="https://cafe.naver.com/ttokjae" target="_blank" rel="noopener">평생 ETF 투자 카페</a></p>
+  </footer>
+</div>
+
+<script>
+let COST={},COST_SRC='',LISTED={},DIVS,KR,HOLD,HOLDJ,HM,AS_OF_KR,WHT,FEES,NAMES,TIMING,INDEX,ORDER,META,PRICES;
+async function boot(){
+  try{
+    const get=n=>fetch('data/'+n+'.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw new Error(n+' '+r.status);return r.json();});
+    const [d,k,h,m,pr]=await Promise.all(['dividends','kr_etf','holdings','meta','prices'].map(get));
+    HM=await get('holdings_monthly').catch(()=>null);
+    PRICES=pr; META=m; WHT=m.withholding; DIVS=d; HOLDJ=h;
+    ORDER=k.order; KR={}; FEES={}; NAMES={}; TIMING={}; INDEX={};
+    COST_SRC=k.cost_source||''; ORDER.forEach(c=>{const e=k.etfs[c]; COST[c]=e.cost||null; KR[c]=e.history; LISTED[c]=(e.listed||'').replace(/-/g,''); FEES[c]=e.fee; NAMES[c]=e.name; TIMING[c]=e.timing; INDEX[c]=e.index||'';});
+    const lastKR=ORDER.map(c=>KR[c][KR[c].length-1][0]).sort().pop();
+    const me=new Date(+lastKR.slice(0,4),+lastKR.slice(4,6),0);
+    AS_OF_KR=`${me.getFullYear()}-${String(me.getMonth()+1).padStart(2,'0')}-${String(me.getDate()).padStart(2,'0')}`;
+    const title=s=>s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+    const SK=m.sectors_ko, ELN=SK.ELN||'ELN(옵션 프리미엄)', CASH=SK['']||'현금·단기자금';
+    // HOLD: [티커, 비중, 이름, 섹터(한글), 구분]
+    HOLD=h.items.map(x=>[x.symbol,x.weight,x.type==='eln'?x.symbol.replace('NDX_','ELN #'):(m.names_ko[x.symbol]||title(x.name)),x.type==='eln'?ELN:(x.type==='stock'&&x.sector?(SK[x.sector]||x.sector):CASH),x.type]);
+    document.getElementById('updTxt').textContent=m.updated;
+    main();
+  }catch(e){
+    document.querySelector('.wrap').insertAdjacentHTML('afterbegin',`<p style="padding:12px;border:1px solid var(--down);color:var(--down);border-radius:8px">데이터를 불러오지 못했습니다 (${e.message}). 이 페이지는 웹 서버(GitHub Pages)에서 열어야 합니다.</p>`);
+    console.error(e);
+  }
+}
+function main(){
+const $=id=>document.getElementById(id);
+const usd=(v,d=4)=>'$'+(Math.round((v+(v>=0?1e-12:-1e-12))*10**d)/10**d).toFixed(d);
+const pct=(v,d=2)=>(v>0?'+':v<0?'−':'')+Math.abs(v*100).toFixed(d)+'%';
+const won=v=>Math.round(v).toLocaleString('ko-KR')+'원';
+const won1=v=>v.toLocaleString('ko-KR',{minimumFractionDigits:1,maximumFractionDigits:1})+'원';
+const cls=v=>v>0.00005?'up':v<-0.00005?'down':'flat';
+const ELN=META.sectors_ko.ELN||'ELN(옵션 프리미엄)', CASH=META.sectors_ko['']||'현금·단기자금';
+
+// ---- JEPQ 기본 계산 (연·월 = 지급일 기준)
+const R=DIVS.map(x=>({ex:x.ex,pay:x.pay,amt:x.amount,close:x.close,fx:x.fx,src:x.source,added:x.added,y:+x.pay.slice(0,4),m:+x.pay.slice(5,7),krw:x.fx?x.amount*x.fx:null}));
+const find=(y,m)=>R.find(r=>r.y===y&&r.m===m);
+R.forEach((r,i)=>{r.mom=i>0?r.amt/R[i-1].amt-1:null;const p=find(r.y-1,r.m);r.yoy=p?r.amt/p.amt-1:null;r.ttm=i>=11?R.slice(i-11,i+1).reduce((s,x)=>s+x.amt,0):null;r.yld=r.ttm&&r.close?r.ttm/r.close:null;});
+const years=[...new Set(R.map(r=>r.y))];
+const A=years.map(y=>{const rs=R.filter(r=>r.y===y);return{y,n:rs.length,tot:rs.reduce((s,r)=>s+r.amt,0),krw:rs.reduce((s,r)=>s+(r.krw||0),0)}});
+A.forEach((a,i)=>{const p=A[i-1];a.g=(p&&a.n>=12&&p.n>=12)?a.tot/p.tot-1:null;});
+const FIRSTY=A[0].y, full=A.filter(a=>a.n>=12), lastFull=full[full.length-1];
+const byY=y=>A.find(a=>a.y===y);
+const L=R[R.length-1];
+const curY=A[A.length-1];
+const ytdPrev=R.filter(r=>r.y===L.y-1&&r.m<=L.m).reduce((s,r)=>s+r.amt,0);
+const ytdCur=R.filter(r=>r.y===L.y).reduce((s,r)=>s+r.amt,0);
+const lastSame=find(L.y-1,L.m);
+
+$('rangeTxt').textContent=`${R[0].y}.${String(R[0].m).padStart(2,'0')} ~ ${L.y}.${String(L.m).padStart(2,'0')} 지급분`;
+$('latestLbl').textContent=`최신 분배 · ${L.y}년 ${L.m}월 지급분`;
+$('latestAmt').innerHTML=`${usd(L.amt,5)}<span>1주당</span>`;
+$('latestChips').innerHTML=(L.mom!=null?`<span class="chip ${cls(L.mom)}">전월 ${pct(L.mom)}</span>`:'')+(L.yoy!=null?`<span class="chip ${cls(L.yoy)}">전년 같은 달 ${pct(L.yoy)}</span>`:'')+(lastSame?`<span class="chip">작년 ${L.m}월 ${usd(lastSame.amt,5)}</span>`:'');
+const lastYld=[...R].reverse().find(r=>r.yld!=null);
+$('latestKv').innerHTML=[
+ ['배당락일',L.ex],['지급일',L.pay],['배당락일 종가',L.close?usd(L.close,2):'배당락 후 표시'],
+ ['TTM 분배 (최근 12회)',L.ttm?usd(L.ttm):'-'],['12개월 분배율 (배당락일 종가)',L.yld?(L.yld*100).toFixed(2)+'%':(lastYld?`${(lastYld.yld*100).toFixed(2)}%<small class="cap" style="display:block;font-weight:400">${lastYld.m}월분 기준</small>`:'-')],['지급일 환율',L.fx?won1(L.fx):'지급 예정'],
+ ['1주 원화 세전',L.krw?won1(L.krw):'지급 후 표시'],['1주 원화 세후',L.krw?won1(L.krw*(1-WHT)):'지급 후 표시'],['100주 세후',L.krw?won(L.krw*(1-WHT)*100):'지급 후 표시']
+].map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+// 다음 분배: 금액이 발표되기 전에는 JPMorgan 분배 일정의 날짜만 '예정'으로 보여 준다
+const SCH=(META.schedule&&META.schedule.rows)||[];
+const nx=SCH.find(r=>r.ex>L.ex&&r.kind!=='capgain'), cg=SCH.find(r=>r.ex>L.ex&&r.kind==='capgain');
+$('nextDiv').innerHTML=nx
+  ?`<div class="nh"><b>다음 분배 (예정)</b><span class="q">${nx.pay.slice(0,4)}년 ${+nx.pay.slice(5,7)}월 지급분</span><span class="tbd">금액 미발표</span></div>
+    <dl class="nd"><div><dt>배당락일</dt><dd>${nx.ex}</dd></div><div><dt>지급일</dt><dd>${nx.pay}</dd></div></dl>
+    <span class="cap">JPMorgan ${nx.ex.slice(0,4)}년 분배 일정 기준 · 날짜는 바뀔 수 있음<br>금액은 발표되면 자동 반영${cg?`<br>자본이득 분배일(있을 때만) ${cg.ex} · 상장 이후 실제 지급 기록은 없음`:''}</span>`
+  :`<div class="nh"><b>다음 분배</b><span class="tbd">일정 미공시</span></div><span class="cap">JPMorgan이 새 분배 일정을 내면 반영합니다.</span>`;
+const O=META.official;
+if(O&&O.sec_yield){const yv=x=>(x.value*100).toFixed(2)+'%';
+  $('offi').innerHTML=`<p class="oh">JPMORGAN 공식 수익률</p><dl>
+   <div><dt>30일 SEC 수익률</dt><dd>${yv(O.sec_yield)}<small>${O.sec_yield.asOf} 기준</small></dd></div>
+   ${O.rolling_12m?`<div><dt>12개월 롤링 분배수익률</dt><dd>${yv(O.rolling_12m)}<small>${O.rolling_12m.asOf} 기준</small></dd></div>`:''}
+   ${O.nav?`<div><dt>NAV</dt><dd>${usd(O.nav.value,2)}<small>${O.nav.asOf} 기준</small></dd></div>`:''}</dl>
+   <p class="cap">위의 '12개월 분배율(배당락일 종가)'과 계산 방식·기준일이 달라 숫자가 다릅니다. 30일 SEC 수익률은 최근 30일 순투자수익(보수 차감)을 1년으로 환산한 표준 공시 수치이고, 12개월 롤링 분배수익률은 JPMorgan이 최근 12개월 분배금으로 계산해 공시하는 값입니다.</p>`;
+  $('offi').hidden=false;}
+$('latestSrc').textContent=`금액 출처: ${L.src}${L.added?` · 트래커 반영 ${L.added}`:''}. 원화 금액은 지급일 하나은행 매매기준율로 환산한 참고값이며, 실제 세후 입금액은 환전 시점·증권사 수수료에 따라 다르니 증권사 거래내역으로 확인하세요.`;
+
+// ---- 요약 타일 8칸
+const vbars=(vals,col)=>{const W=100,H=36,n=vals.length,mx=Math.max(...vals.map(Math.abs))||1,neg=vals.some(v=>v<0),base=neg?H/2:H,sc=neg?H/2-1:H-1,bw=W/n;
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${vals.map((v,i)=>{const h=Math.max(Math.abs(v)/mx*sc,.8),y=v>=0?base-h:base;return `<rect x="${i*bw+bw*.15}" y="${y}" width="${bw*.7}" height="${h}" style="fill:${col(v,i)}"/>`;}).join('')}${neg?`<line x1="0" x2="${W}" y1="${base}" y2="${base}" style="stroke:var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>`:''}</svg>`;};
+const hbars=items=>{const mx=Math.max(...items.map(x=>Math.abs(x[1])));return items.map(([k,v,c,t])=>`<div class="hb"><span>${k}</span><span class="tr"><i style="width:${Math.max(Math.abs(v)/mx*100,2)}%;background:${c}"></i></span><b>${t}</b></div>`).join('');};
+const curRows=R.filter(r=>r.y===L.y);
+const last12=R.slice(-12), mn=last12.reduce((a,r)=>r.amt<a.amt?r:a), mx=last12.reduce((a,r)=>r.amt>a.amt?r:a), av12=last12.reduce((s,r)=>s+r.amt,0)/12;
+const withYoy=R.filter(r=>r.yoy!=null), cuts=withYoy.filter(r=>r.yoy<0);
+const allSum=R.reduce((s,r)=>s+r.amt,0);
+const PR=PRICES.rows, pNow=PR[PR.length-1], p0=PR[0];
+const yocNow=lastYld?lastYld.ttm/pNow[1]:null, yoc0=lastYld?lastYld.ttm/p0[1]:null;
+const drip=pNow[2]/p0[2]-1, pxOnly=pNow[1]/p0[1]-1;
+const HS=HOLDJ.summary||{};
+const S=[
+ ['올해 누적 vs 작년 동기',pct(ytdCur/ytdPrev-1),cls(ytdCur/ytdPrev-1),`${L.y}년 ${curY.n}회 ${usd(ytdCur)} · 작년 같은 기간 ${usd(ytdPrev)}`,
+  `${vbars(curRows.map(r=>r.yoy||0),v=>v<0?'var(--down)':'var(--up)')}<div class="ax"><span>1월</span><span>막대 = 달마다 작년 같은 달 대비</span><span>${L.m}월</span></div>`],
+ [`${lastFull.y}년 연간 분배`,usd(lastFull.tot),'',`${lastFull.g!=null?`전년 대비 ${pct(lastFull.g)} · `:''}월평균 ${usd(lastFull.tot/12)}`,
+  `${vbars(full.map(a=>a.tot),(v,i)=>i===full.length-1?'var(--accent)':'var(--bar-partial)')}<div class="ax"><span>${full[0].y}</span><span>${lastFull.y}</span></div><div class="hint">12회 모두 확정된 해 ${full.length}개 (${FIRSTY}년은 상장 첫해 ${byY(FIRSTY).n}회라 제외)</div>`],
+ ['최근 12회 월 분배 범위',`${usd(mn.amt,3)} ~ ${usd(mx.amt,3)}`,'',`평균 ${usd(av12)} · 최저 ${mn.y}.${String(mn.m).padStart(2,'0')} · 최고 ${mx.y}.${String(mx.m).padStart(2,'0')}`,
+  `${vbars(last12.map(r=>r.amt),(v,i)=>last12[i]===mx?'var(--accent)':last12[i]===mn?'var(--avg)':'var(--bar-partial)')}<div class="ax"><span>${last12[0].y}.${String(last12[0].m).padStart(2,'0')}</span><span>${L.y}.${String(L.m).padStart(2,'0')}</span></div><div class="hint">최고가 최저의 <b>${(mx.amt/mn.amt).toFixed(2)}배</b> · 매달 금액이 정해져 있지 않습니다</div>`],
+ ['상장 이후 누적 분배',usd(allSum,2),'',`${R.length}회 · ${R[0].pay.slice(0,7)} ~ ${L.pay.slice(0,7)} 지급분`,
+  `<div class="hint">상장 첫 거래일(${p0[0]}) 종가 ${usd(p0[1],2)}의 <b>${(allSum/p0[1]*100).toFixed(1)}%</b>를 분배로 받은 셈입니다 (세전)</div>`],
+ ['전년 같은 달보다 줄어든 달',`${cuts.length}회`,'',`작년 같은 달과 비교 가능한 ${withYoy.length}회 중`,
+  `<div class="chips2">${cuts.slice(-8).reverse().map(r=>`<span><b>${String(r.y).slice(2)}.${String(r.m).padStart(2,'0')}</b>${pct(r.yoy,1)}</span>`).join('')}</div><div class="hint">연간 합계가 줄어든 해는 <b>${A.filter(a=>a.g!=null&&a.g<0).length}번</b>입니다 (12회 확정 연도끼리)</div>`],
+ ['ELN 비중',HS.eln!=null?HS.eln.toFixed(2)+'%':'-','',`${HOLDJ.asOf} 기준 · ELN ${HS.elnCount||'-'}개 · 주식 ${HS.stockCount||'-'}종목`,
+  HS.eln!=null?hbars([['주식',HS.stock,'var(--bar)',HS.stock.toFixed(1)+'%'],['ELN',HS.eln,'var(--eln)',HS.eln.toFixed(1)+'%'],['현금',HS.cash,'var(--other)',HS.cash.toFixed(1)+'%']])+`<div class="ax"><span>JPMorgan 공식 보유종목 · 시장가치 기준</span></div>`:''],
+ ['상장일 매수가 기준 분배율',yoc0?(yoc0*100).toFixed(2)+'%':'-','',lastYld?`${p0[0]} 종가 ${usd(p0[1],2)}에 샀다면 · 최근 12회 분배 ${usd(lastYld.ttm)} 기준`:'',
+  yoc0?hbars([['상장일 매수',yoc0,'var(--accent)',(yoc0*100).toFixed(1)+'%'],['지금 매수',yocNow,'var(--other)',(yocNow*100).toFixed(1)+'%']])+`<div class="ax"><span>지금 매수는 ${pNow[0]} 종가 ${usd(pNow[1],2)} 기준</span></div>`:''],
+ ['상장 이후 분배 재투자 총수익',pct(drip,0),drip>0?'up':'',`${p0[0]} → ${pNow[0]}, 분배금을 다시 산 경우`,
+  hbars([['분배 재투자',drip,'var(--up)',pct(drip,0)],['주가만',pxOnly,'var(--other)',pct(pxOnly,0)]])+`<div class="ax"><span>세금·수수료 미반영 · 종가와 분배금으로 직접 계산</span></div>`],
+];
+$('stats').innerHTML=S.map(([t,v,c,s,x])=>`<div class="stat"><span class="t">${t}</span><span class="v ${c}">${v}</span><span class="s">${String(s).split(/ · |, /).filter(Boolean).map(t=>`<span class="ln">${t}</span>`).join('')}</span>${x?`<div class="mini">${x}</div>`:''}</div>`).join('');
+
+// ---- 주가 흐름
+(function(){
+  const rows=PRICES.rows, last=rows[rows.length-1];
+  $('pcap').textContent=`${PRICES.asOf} 종가 기준 · ${PRICES.source} · 분배 재투자선은 세금·수수료를 빼지 않은 값입니다.`;
+  const fmtD=s=>s.slice(0,4)+'.'+s.slice(5,7)+'.'+s.slice(8,10);
+  function draw(from,to){
+    const sub=rows.filter(r=>r[0]>=from&&r[0]<=to);
+    if(sub.length<2){$('pstats').innerHTML='<div><dt>기간</dt><dd>선택한 기간에 거래일이 2일 이상 있어야 합니다</dd></div>';$('pchart').innerHTML='';return;}
+    const end=sub[sub.length-1], step=Math.max(1,Math.ceil(sub.length/700));
+    $('pFrom').value=sub[0][0]; $('pTo').value=end[0];
+    const pts=sub.filter((r,i)=>i%step===0||i===sub.length-1);
+    const q0=sub[0], k=q0[1]/q0[2];
+    const tr=r=>r[2]*k;
+    const yrsReal=(new Date(end[0])-new Date(q0[0]))/(365.25*864e5);
+    const pr=end[1]/q0[1]-1, trr=tr(end)/q0[1]-1;
+    const cg=v=>Math.pow(1+v,1/yrsReal)-1;
+    $('pstats').innerHTML=[
+      ['기간',`${fmtD(q0[0])} ~ ${fmtD(end[0])}`],
+      ['주가',`$${q0[1].toFixed(2)} → $${end[1].toFixed(2)}`],
+      ['주가 상승률',`${pct(pr,1)}${yrsReal>=1?`<small>연 ${pct(cg(pr),1)}</small>`:''}`],
+      ['분배 재투자 포함',`${pct(trr,1)}${yrsReal>=1?`<small>연 ${pct(cg(trr),1)}</small>`:''}`]
+    ].map(([a,b])=>`<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
+    const W=1000,H=320,pl=52,pr2=64,pt=16,pb=30;
+    const vals=pts.flatMap(r=>[r[1],tr(r)]); let lo=Math.min(...vals),hi=Math.max(...vals);
+    const span=hi-lo, stp=[0.5,1,2,5,10,20][[0.5,1,2,5,10,20].findIndex(s=>span/s<=7)]||20;
+    lo=Math.floor(lo/stp)*stp; hi=Math.ceil(hi/stp)*stp;
+    const t0=+new Date(pts[0][0]), t1=+new Date(end[0]);
+    const xS=s=>pl+(W-pl-pr2)*((+new Date(s))-t0)/(t1-t0), yS=v=>pt+(H-pt-pb)*(hi-v)/(hi-lo);
+    let s='';
+    for(let v=lo;v<=hi+1e-9;v+=stp){const y=yS(v);s+=`<line x1="${pl}" x2="${W-pr2}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${pl-8}" y="${y+4}" text-anchor="end" font-size="11">$${v%1?v.toFixed(1):v}</text>`;}
+    const y0=+pts[0][0].slice(0,4), y1=+end[0].slice(0,4), every=Math.max(1,Math.ceil((y1-y0+1)/12));
+    const days=(t1-t0)/864e5;
+    if(days<=500){const mstep=days<=120?1:2;for(let m=0;m<18;m++){const d=new Date(pts[0][0]);d.setDate(1);d.setMonth(d.getMonth()+m+1);const ds=d.toISOString().slice(0,10);if(ds>end[0])break;if(m%mstep)continue;const x=xS(ds);s+=`<line x1="${x}" x2="${x}" y1="${pt}" y2="${H-pb}" stroke="var(--line)" stroke-dasharray="2 4"/><text x="${x}" y="${H-pb+16}" text-anchor="middle" font-size="11">${ds.slice(2,4)}.${ds.slice(5,7)}</text>`;}}
+    else for(let y=y0+1;y<=y1;y++){if((y-y0-1)%every)continue;const x=xS(`${y}-01-01`);s+=`<line x1="${x}" x2="${x}" y1="${pt}" y2="${H-pb}" stroke="var(--line)" stroke-dasharray="2 4"/><text x="${x}" y="${H-pb+16}" text-anchor="middle" font-size="11">'${String(y).slice(2)}</text>`;}
+    const path=f=>pts.map((r,i)=>`${i?'L':'M'}${xS(r[0]).toFixed(1)} ${yS(f(r)).toFixed(1)}`).join('');
+    s+=`<path d="${path(r=>r[1])} L${xS(end[0])} ${H-pb} L${pl} ${H-pb}Z" fill="var(--ink)" opacity="0.06"/>`;
+    s+=`<path d="${path(tr)}" fill="none" stroke="var(--up)" stroke-width="1.8"/>`;
+    s+=`<path d="${path(r=>r[1])}" fill="none" stroke="var(--ink)" stroke-width="1.8"/>`;
+    const lx=xS(end[0]);
+    s+=`<circle cx="${lx}" cy="${yS(end[1])}" r="3.5" fill="var(--ink)"/><circle cx="${lx}" cy="${yS(tr(end))}" r="3.5" fill="var(--up)"/>`;
+    let ya=yS(tr(end))+4, yb=yS(end[1])+4; if(Math.abs(ya-yb)<14){const m=(ya+yb)/2; ya=m-7; yb=m+7;}
+    s+=`<text x="${lx+7}" y="${ya}" font-size="11" font-weight="600" style="fill:var(--up)">$${tr(end).toFixed(2)}</text>`;
+    s+=`<text x="${lx+7}" y="${yb}" font-size="11" font-weight="600" style="fill:var(--ink)">$${end[1].toFixed(2)}</text>`;
+    s+=`<line id="pcross" x1="0" x2="0" y1="${pt}" y2="${H-pb}" stroke="var(--muted)" stroke-width="1" visibility="hidden"/>`;
+    const svg=$('pchart'); svg.setAttribute('viewBox',`0 0 ${W} ${H}`); svg.style.width='100%'; svg.style.minWidth='600px'; svg.innerHTML=s;
+    svg.onmousemove=e=>{const b=svg.getBoundingClientRect(), x=(e.clientX-b.left)*W/b.width;
+      if(x<pl||x>W-pr2){svg.onmouseleave();return;}
+      const t=t0+(x-pl)/(W-pl-pr2)*(t1-t0); let lo2=0,hi2=sub.length-1;
+      while(hi2-lo2>1){const mid=(lo2+hi2)>>1; (+new Date(sub[mid][0])<=t)?lo2=mid:hi2=mid;}
+      const r=sub[lo2], cx=xS(r[0]); const c=document.getElementById('pcross'); c.setAttribute('x1',cx);c.setAttribute('x2',cx);c.setAttribute('visibility','visible');
+      const tip=$('ptip'); tip.hidden=false; tip.innerHTML=`<b>${fmtD(r[0])}</b><br>주가 $${r[1].toFixed(2)}<br><span style="color:var(--up)">재투자 $${tr(r).toFixed(2)}</span>`;
+      const px=(cx/W)*b.width; tip.style.left=Math.min(px+10,b.width-130)+'px'; tip.style.top='8px';};
+    svg.onmouseleave=()=>{$('ptip').hidden=true;const c=document.getElementById('pcross');if(c)c.setAttribute('visibility','hidden');};
+  }
+  const preset=yrs=>{let from=rows[0][0];if(yrs){const d=new Date(last[0]);d.setFullYear(d.getFullYear()-yrs);from=d.toISOString().slice(0,10);}draw(from,last[0]);};
+  const press=b=>document.querySelectorAll('#prange button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+  document.querySelectorAll('#prange button').forEach(b=>b.addEventListener('click',()=>{press(b);preset(+b.dataset.y);}));
+  $('pFrom').min=$('pTo').min=rows[0][0]; $('pFrom').max=$('pTo').max=last[0];
+  const custom=()=>{let f=$('pFrom').value,tt=$('pTo').value; if(!f||!tt)return; if(f>tt)[f,tt]=[tt,f]; press(null); draw(f,tt);};
+  $('pFrom').addEventListener('change',custom); $('pTo').addEventListener('change',custom);
+  preset(0);
+})();
+
+// ---- 예상치 (진행 중인 해의 남은 달 = 그해 확정 월 단순 평균)
+const EST={};
+if(curY.n<12){const avg=curY.tot/curY.n; EST.y=curY.y; EST.avg=avg; EST.ms=[];for(let m=L.m+1;m<=12;m++)EST.ms.push(m);
+  EST.add=avg*EST.ms.length; EST.total=curY.tot+EST.add; const p=byY(curY.y-1); EST.g=p&&p.n>=12?EST.total/p.tot-1:null;}
+const SVGNS=(id,W,H,minW,s)=>{const svg=$(id);svg.setAttribute('viewBox',`0 0 ${W} ${H}`);svg.style.width='100%';svg.style.minWidth=minW+'px';svg.innerHTML=s;};
+const avgLine=(x1,x2,y,label,pos='left-above')=>{
+  const w=label.length*6.4+10, left=String(pos).startsWith('left'), above=pos.endsWith('above');
+  const bx=left?x1+6:x2-w-4, by=above?y-17:y+3;
+  return `<line x1="${x1}" x2="${x2}" y1="${y}" y2="${y}" stroke="var(--avg)" stroke-width="1.6" stroke-dasharray="6 4"/>`+
+  `<rect x="${bx}" y="${by}" width="${w}" height="15" rx="2" fill="var(--surface)" opacity="0.92"/>`+
+  `<text x="${bx+5}" y="${by+11}" font-size="10.5" font-weight="600" style="fill:var(--avg)">${label}</text>`;};
+const EST_STYLE='fill="var(--est)" stroke="var(--est-line)" stroke-width="1.2" stroke-dasharray="4 3"';
+
+// ---- 연간 막대 (확정 + 예상 누적)
+(function(){
+  const W=980,H=336,pl=48,pr=12,pt=40,pb=34,n=A.length,cw=(W-pl-pr)/n,bw=Math.min(64,cw*0.5);
+  const top=Math.max(...A.map(a=>a.tot),EST.total||0);
+  const max=Math.ceil(top); const yS=v=>pt+(H-pt-pb)*(1-v/max);
+  let s='';
+  for(let t=0;t<=max+1e-9;t+=1){const y=yS(t);s+=`<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${pl-8}" y="${y+4}" text-anchor="end" font-size="11">$${t.toFixed(0)}</text>`;}
+  A.forEach((a,i)=>{const x=pl+cw*i+(cw-bw)/2,y=yS(a.tot),cx=x+bw/2, first=a.y===FIRSTY&&a.n<12&&!(EST.y===a.y);
+    s+=`<rect x="${x}" y="${y}" width="${bw}" height="${H-pb-y}" fill="${first?'var(--bar-partial)':'var(--bar)'}"><title>${a.y}년 확정 ${usd(a.tot)} (${a.n}회)</title></rect>`;
+    let labY=y, lab=usd(a.tot), col='var(--ink)';
+    if(EST.y===a.y){const ye=yS(EST.total);
+      s+=`<rect x="${x+0.6}" y="${ye}" width="${bw-1.2}" height="${y-ye}" ${EST_STYLE}><title>${a.y}년 예상 추가분 ${usd(EST.add)} (${EST.ms.join('·')}월)</title></rect>`;
+      s+=`<text x="${cx}" y="${y+14}" text-anchor="middle" font-size="10" font-weight="600" style="fill:var(--surface)">${usd(a.tot,3)}</text>`;
+      labY=ye; lab=usd(EST.total); col='var(--accent)';
+      s+=`<text x="${cx}" y="${ye-20}" text-anchor="middle" font-size="10" style="fill:var(--accent)">예상</text>`;}
+    s+=`<text x="${cx}" y="${labY-7}" text-anchor="middle" font-size="10.5" font-weight="600" style="fill:${col};paint-order:stroke;stroke:var(--surface);stroke-width:3px">${lab}</text>`;
+    s+=`<text x="${cx}" y="${H-pb+16}" text-anchor="middle" font-size="11">${a.y}${first?` (${a.n}회)`:a.n<12?` (${a.n}회 확정)`:''}</text>`;});
+  const av=full.reduce((s2,a)=>s2+a.tot,0)/full.length;
+  s+=avgLine(pl,W-pr,yS(av),`평균 ${usd(av)} (${full[0].y}~${full[full.length-1].y}, 12회 확정 연도)`);
+  SVGNS('annual',W,H,560,s);
+})();
+
+// ---- 연간 증감률
+(function(){
+  const G=A.filter(a=>a.g!=null).map(a=>({y:a.y,g:a.g,est:false}));
+  if(EST.g!=null) G.push({y:EST.y,g:EST.g,est:true});
+  if(!G.length){$('growth').closest('.sec').hidden=true;return;}
+  const W=980,H=280,pl=48,pr=12,pt=26,pb=34,n=G.length,cw=(W-pl-pr)/n,bw=Math.min(64,cw*0.4);
+  const hi=Math.max(0.05,Math.ceil(Math.max(...G.map(d=>d.g))*20)/20), lo=Math.min(0,Math.floor(Math.min(...G.map(d=>d.g))*20)/20);
+  const yS=v=>pt+(H-pt-pb)*(hi-v)/(hi-lo);
+  let s='';
+  for(let t=lo;t<=hi+1e-9;t+=0.05){const y=yS(t);s+=`<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${pl-8}" y="${y+4}" text-anchor="end" font-size="11">${Math.round(t*100)}%</text>`;}
+  const y0=yS(0); s+=`<line x1="${pl}" x2="${W-pr}" y1="${y0}" y2="${y0}" stroke="var(--muted)" stroke-width="1.2"/>`;
+  G.forEach((d,i)=>{const x=pl+cw*i+(cw-bw)/2,cx=x+bw/2,y=yS(d.g),top=Math.min(y,y0),h=Math.max(1.5,Math.abs(y-y0));
+    s+= d.est?`<rect x="${x}" y="${top}" width="${bw}" height="${h}" ${EST_STYLE}><title>${d.y}년 예상 ${pct(d.g)}</title></rect>`
+             :`<rect x="${x}" y="${top}" width="${bw}" height="${h}" fill="${d.g<0?'var(--down)':'var(--up)'}"><title>${d.y}년 ${pct(d.g)}</title></rect>`;
+    const ly=d.g>=0?top-6:top+h+13;
+    s+=`<text x="${cx}" y="${ly}" text-anchor="middle" font-size="11" style="fill:${d.est?'var(--accent)':(d.g<0?'var(--down)':'var(--ink)')}">${d.est?'예상 ':''}${pct(d.g,1)}</text>`;
+    s+=`<text x="${cx}" y="${H-pb+16}" text-anchor="middle" font-size="11">${d.y}${d.est?' (예상)':''}</text>`;});
+  SVGNS('growth',W,H,480,s);
+})();
+
+// ---- 월별 추이
+(function(){
+  const Q=R.map(r=>({y:r.y,m:r.m,v:r.amt,est:false}));
+  if(EST.y) EST.ms.forEach(m=>Q.push({y:EST.y,m,v:EST.avg,est:true}));
+  const W=1000,H=310,pl=48,pr=14,pt=44,pb=34,n=Q.length,cw=(W-pl-pr)/n,bw=Math.max(3,cw*0.72);
+  const max=Math.ceil(Math.max(...Q.map(d=>d.v))*10)/10; const yS=v=>pt+(H-pt-pb)*(1-v/max);
+  let s='';
+  for(let t=0;t<=max+1e-9;t+=0.1){const y=yS(t);s+=`<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${pl-8}" y="${y+4}" text-anchor="end" font-size="11">$${t.toFixed(1)}</text>`;}
+  Q.forEach((d,i)=>{const x=pl+cw*i+(cw-bw)/2,y=yS(d.v);
+    s+= d.est?`<rect x="${x}" y="${y}" width="${bw}" height="${H-pb-y}" ${EST_STYLE}><title>${d.y}.${String(d.m).padStart(2,'0')} 예상 ${usd(d.v)}</title></rect>`
+             :`<rect x="${x}" y="${y}" width="${bw}" height="${H-pb-y}" fill="var(--bar)"><title>${d.y}.${String(d.m).padStart(2,'0')} 지급 ${usd(d.v,5)}</title></rect>`;
+    if(d.m===1||i===0) s+=`<text x="${x}" y="${H-pb+16}" font-size="11">'${String(d.y).slice(2)}${i===0&&d.m!==1?`.${String(d.m).padStart(2,'0')}`:''}</text>`;
+    const isLast=i===Q.length-1, isLastConf=!d.est&&(i===Q.length-1||Q[i+1].est);
+    const xr=pl+cw*(Q.length-1)+(cw+bw)/2, ytop=yS(Math.max(...Q.slice(-6).map(z=>z.v)));
+    if(isLast&&d.est) s+=`<text x="${xr}" y="${ytop-8}" text-anchor="end" font-size="10.5" style="fill:var(--accent)">예상 ${d.y}.${String(d.m).padStart(2,'0')} ${usd(d.v)}</text>`;
+    if(isLastConf) s+=`<text x="${xr}" y="${ytop-(isLast?8:24)}" text-anchor="end" font-size="10.5" style="fill:var(--ink)">최신 ${d.y}.${String(d.m).padStart(2,'0')} ${usd(d.v)}</text>`;});
+  const cq=Q.filter(d=>!d.est), aq=cq.reduce((s2,d)=>s2+d.v,0)/cq.length;
+  s+=avgLine(pl,W-pr,yS(aq),`평균 ${usd(aq)} (확정 ${cq.length}회)`,'left-below');
+  SVGNS('qchart',W,H,720,s);
+  $('qchartCap').textContent=`${Q[0].y}.${String(Q[0].m).padStart(2,'0')} ~ ${Q[Q.length-1].y}.${String(Q[Q.length-1].m).padStart(2,'0')} 지급분, 달마다 막대 1개`;
+})();
+if(EST.y){ const mn2=a=>a.join('·')+'월', done=R.filter(r=>r.y===EST.y).map(r=>r.m);
+  const sameAsLast=EST.ms.reduce((s,m)=>s+((find(EST.y-1,m)||{}).amt||0),0), tB=curY.tot+sameAsLast;
+  const avgM=(y,ms)=>{const rs=R.filter(r=>r.y===y&&ms.includes(r.m));return rs.reduce((s,r)=>s+r.amt,0)/rs.length;};
+  const ratios=full.map(a=>({y:a.y,r:avgM(a.y,EST.ms)/avgM(a.y,done)-1})), hiN=ratios.filter(v=>v.r>0).length;
+  const g0=ytdCur/ytdPrev-1, prevTot=byY(EST.y-1).tot, gA=EST.total/prevTot-1, gB=tB/prevTot-1;
+  $('estNote').innerHTML=`<p class="eh">${EST.y}년 분배 점검</p><ul>
+    <li><b>확정 ${done.length}회 (${done[0]}~${done[done.length-1]}월 지급)</b> <span class="num">${usd(ytdCur)}</span><span class="sub">작년 같은 기간 ${usd(ytdPrev)} 대비 <span class="${cls(g0)}">${pct(g0)}</span></span></li>
+    <li><b>연간 예상 ① 단순 평균</b> <span class="num">${usd(EST.total)}</span><span class="sub">남은 ${mn2(EST.ms)} = 올해 확정 월 평균 ${usd(EST.avg)} · 전년 대비 <span class="${cls(gA)}">${pct(gA)}</span></span></li>
+    <li><b>연간 예상 ② 작년 같은 달</b> <span class="num">${usd(tB)}</span><span class="sub">남은 ${mn2(EST.ms)}이 작년 같은 달(${usd(sameAsLast)})과 같다고 가정 · 전년 대비 <span class="${cls(gB)}">${pct(gB)}</span></span></li>
+  </ul><p class="en">12회 확정된 ${ratios.length}개 해 중 ${hiN}개 해는 ${mn2(EST.ms)} 분배가 그해 ${done[0]}~${done[done.length-1]}월 평균보다 높았습니다(${ratios.map(x=>`${x.y}년 ${pct(x.r,1)}`).join(', ')}). 해가 몇 개 안 돼 경향으로 보기는 어렵고, 옵션 프리미엄은 시장 변동성에 따라 크게 달라지니 참고만 하세요.</p>`;
+  document.querySelectorAll('#estNote .sub').forEach(el=>{el.innerHTML=el.innerHTML.split(' · ').join('<br>');}); }
+
+// ---- 월 격자
+let unit='usd';
+function drawQ(){
+  const val=r=>unit==='usd'?r.amt:r.krw==null?null:(unit==='krw'?r.krw:r.krw*(1-WHT));
+  const fmt=v=>unit==='usd'?usd(v):won(v);
+  let h=`<thead><tr><th>연도</th>${Array.from({length:12},(_,i)=>`<th>${i+1}월</th>`).join('')}<th>연간</th></tr></thead><tbody>`;
+  [...years].reverse().forEach(y=>{const a=byY(y);
+    h+=`<tr class="${a.n<12?'partial':''}"><td class="yr">${y}</td>`;
+    for(let m=1;m<=12;m++){const r=find(y,m);
+      if(!r){const sc=SCH.find(s=>+s.pay.slice(0,4)===y&&+s.pay.slice(5,7)===m&&s.kind!=='capgain'&&s.ex>L.ex);
+        h+=sc?`<td class="num"><span class="d flat">${sc.ex.slice(5).replace('-','/')} 배당락 예정</span></td>`:`<td class="na num">·</td>`;continue;}
+      if(val(r)==null){h+=`<td class="num">${usd(r.amt)}<span class="d flat">지급 전</span></td>`;continue;}
+      const prev=find(y-1,m); const d=prev&&val(prev)!=null?val(r)/val(prev)-1:null;
+      h+=`<td class="num">${fmt(val(r))}${d!=null?`<span class="d ${cls(d)}">${pct(d,1)}</span>`:''}</td>`;}
+    const tot=R.filter(r=>r.y===y).reduce((s,r)=>s+(val(r)||0),0); const pa=byY(y-1);
+    const ptot=pa?R.filter(r=>r.y===y-1).reduce((s,r)=>s+(val(r)||0),0):null;
+    const g=(a.n>=12&&pa&&pa.n>=12)?tot/ptot-1:null;
+    h+=`<td class="num"><b>${fmt(tot)}</b>${g!=null?`<span class="d ${cls(g)}">${pct(g,1)}</span>`:(a.n<12?`<span class="d flat">${a.n}회 누적</span>`:'')}</td></tr>`;});
+  $('qtable').innerHTML=h+'</tbody>';
+  $('qcap').textContent=unit==='usd'?'월 = 지급일의 달(1월분은 전년 12월 말 배당락). 작은 숫자는 전년 같은 달 대비 변화율. 회색 줄은 아직 진행 중이거나 상장 첫해입니다.':`원화는 각 지급일의 하나은행 매매기준율로 환산한 값입니다. 세후는 미국 원천징수 ${WHT*100}% 차감. 원화 기준 증감률에는 환율 변화가 섞여 있습니다. 지급 전인 달은 원화 합계에서 빠집니다.`;
+}
+['usd','krw','net'].forEach(u=>$('u-'+u).addEventListener('click',()=>{unit=u;['usd','krw','net'].forEach(k=>$('u-'+k).setAttribute('aria-pressed',k===u));drawQ();}));
+drawQ();
+
+// ---- 도넛 (현재·월별 공용): segs = TOP10 주식 + ELN + 기타
+const donutSVG=(segs,topSum,eln,other)=>{
+  const cx=150,cy=150,R1=128,R0=82; let a0=-Math.PI/2, s='';
+  const P=(r,a)=>[cx+r*Math.cos(a),cy+r*Math.sin(a)];
+  segs.forEach((g,i)=>{const a1=a0+2*Math.PI*g.v/100, lg=(a1-a0)>Math.PI?1:0;
+    const [x1,y1]=P(R1,a0),[x2,y2]=P(R1,a1),[x3,y3]=P(R0,a1),[x4,y4]=P(R0,a0);
+    s+=`<path d="M${x1} ${y1}A${R1} ${R1} 0 ${lg} 1 ${x2} ${y2}L${x3} ${y3}A${R0} ${R0} 0 ${lg} 0 ${x4} ${y4}Z" fill="${g.c}" stroke="var(--surface)" stroke-width="1.5"><title>${g.n} ${g.v.toFixed(2)}%</title></path>`;
+    const am=(a0+a1)/2,[lx,ly]=P((R0+R1)/2,am), big=!!g.big, dark=[3,6,9].includes(i+1)||g.k==='기타';
+    if(g.v>=1.2) s+=`<text x="${lx}" y="${ly+3.5}" text-anchor="middle" font-size="${big?11.5:8.6}" font-weight="600" style="fill:${dark?'#16232C':'#FFFFFF'}">${big?g.v.toFixed(1)+'%':g.v.toFixed(2)}</text>`;
+    a0=a1;});
+  return s+`<text x="${cx}" y="${cy-18}" text-anchor="middle" font-size="12">TOP 10 주식</text><text x="${cx}" y="${cy+4}" text-anchor="middle" font-size="22" font-weight="600" style="fill:var(--ink)">${topSum.toFixed(2)}%</text><text x="${cx}" y="${cy+22}" text-anchor="middle" font-size="11">ELN ${eln.toFixed(2)}% · 기타 ${other.toFixed(2)}%</text>`;
+};
+const sectorRows=rows=>{const mx=Math.max(...rows.map(r=>r[1]));
+  return rows.map(([k,v,t,c])=>`<div class="srow"><span>${k}</span><span class="trk"><span class="fil" style="display:block;width:${(v/mx*100).toFixed(1)}%${k===ELN?';background:var(--eln)':''}"></span></span><span class="pv">${v.toFixed(2)}%</span><span class="sc ${c||''}">${t||''}</span></div>`).join('');};
+const tailOrder=k=>k===ELN?1:k===CASH?2:0;
+
+// ---- 구성종목
+(function(){
+  const hs=[...HOLD].sort((a,b)=>b[1]-a[1]);
+  const stocks=hs.filter(x=>x[4]==='stock'), elns=hs.filter(x=>x[4]==='eln'), cash=hs.filter(x=>x[4]!=='stock'&&x[4]!=='eln');
+  const top=stocks.slice(0,10);
+  const r2=v=>Math.round(v*100)/100, topR=top.map(h=>r2(h[1])), topSum=r2(topR.reduce((a,b)=>a+b,0));
+  const elnSum=r2(elns.reduce((a,x)=>a+x[1],0)), other=r2(100-topSum-elnSum);
+  const segs=top.map((h,i)=>({k:h[0],n:h[2],v:topR[i],c:`var(--p${i+1})`}))
+    .concat([{k:'ELN',n:`ELN ${elns.length}개 합계`,v:elnSum,c:'var(--eln)',big:true},{k:'기타',n:`나머지 ${stocks.length-10}종목·현금`,v:other,c:'var(--other)',big:true}]);
+  const md=s=>`${+s.slice(5,7)}/${+s.slice(8,10)}`;
+  const prevRec=HM?[...HM.months].reverse().find(r=>r.month<HOLDJ.asOf.slice(0,7)):null;
+  const prevW=prevRec?Object.fromEntries(prevRec.items.map(x=>[x[0],x[1]])):null;
+  $('holdAsOf').textContent=`${HOLDJ.asOf} 기준 · JPMorgan 공식 일별 보유종목 · 합계 100%`;
+  $('holdTopCap').textContent=prevRec?`비중 아래 숫자는 ${md(prevRec.asOf)} 대비`:'';
+  const dlt=(v,p)=>{if(!prevW)return'';if(p==null)return'<span class="d up">신규</span>';const d=v-p;const c=d>0.005?'up':d<-0.005?'down':'flat';return`<span class="d ${c}">${d>=0?'+':'−'}${Math.abs(d).toFixed(2)}%p</span>`;};
+  $('donut').innerHTML=donutSVG(segs,topSum,elnSum,other);
+  const color=x=>{if(x[4]==='eln')return'var(--eln)';const i=top.findIndex(t=>t[0]===x[0]);return i>=0?`var(--p${i+1})`:'var(--other)';};
+  const row=(rank,x)=>`<tr><td class="num">${rank}</td><td><span class="nm"><span class="sw" style="background:${color(x)}"></span>${x[2]}<span class="tk">${x[4]==='eln'?'':x[0]}</span></span></td><td>${x[3]}</td><td class="num">${x[1].toFixed(2)}%${x[4]==='stock'?dlt(x[1],prevW?prevW[x[0]]:null):''}</td></tr>`;
+  const head=`<thead><tr><th>순위</th><th>종목</th><th>섹터</th><th>비중</th></tr></thead><tbody>`;
+  const sumRow=v=>`<tr class="sum"><td></td><td>합계</td><td></td><td class="num">${v}</td></tr>`;
+  let open=false;
+  const render=()=>{
+    let h=head;
+    if(!open){
+      top.forEach((x,i)=>{h+=row(i+1,[x[0],topR[i],x[2],x[3],'stock']);});
+      h+=`<tr class="other"><td>–</td><td><span class="nm"><span class="sw" style="background:var(--eln)"></span>ELN 합계<span class="tk">${elns.length}개</span></span></td><td>${ELN}</td><td class="num">${elnSum.toFixed(2)}%</td></tr>`;
+      h+=`<tr class="other"><td>–</td><td><span class="nm"><span class="sw" style="background:var(--other)"></span>기타<span class="tk">나머지 ${stocks.length-10}종목·현금</span></span></td><td>–</td><td class="num">${other.toFixed(2)}%</td></tr>`+sumRow('100.00%');
+      $('ahcnt').textContent='';
+    }else{
+      const q=($('ahq').value||'').trim().toLowerCase();
+      const list=stocks.map((x,i)=>[i+1,x]).concat(elns.map(x=>['–',x]),cash.map(x=>['–',x])).filter(([,x])=>!q||[x[0],x[2],x[3]].some(v=>String(v).toLowerCase().includes(q)));
+      list.forEach(([r,x])=>{h+=row(r,x);});
+      if(!list.length) h+=`<tr><td></td><td class="cap">‘${q}’에 맞는 종목이 없습니다</td><td></td><td></td></tr>`;
+      else if(!q) h+=sumRow(hs.reduce((s,x)=>s+x[1],0).toFixed(2)+'%');
+      $('ahcnt').textContent=q?`${list.length}건`:'';
+    }
+    $('holdTable').innerHTML=h+'</tbody>';
+    const b=$('hToggle'); b.setAttribute('aria-expanded',open);
+    b.textContent=open?'TOP 10만 보기 ▴':`전체 펼치기 ▾ (주식 ${stocks.length}종목 · ELN ${elns.length}개 · 현금 ${cash.length}건)`;
+    $('ahbar').hidden=!open;
+    const hold=document.querySelector('.hold'); if(hold&&hold.classList) hold.classList.toggle('open',open);
+  };
+  $('hToggle').addEventListener('click',()=>{open=!open; if(!open)$('ahq').value=''; render();});
+  $('ahq').addEventListener('input',render);
+  render();
+  const sec={},cnt={};HOLD.forEach(x=>{sec[x[3]]=(sec[x[3]]||0)+x[1]; cnt[x[3]]=(cnt[x[3]]||0)+1;});
+  const ss=Object.entries(sec).sort((a,b)=>tailOrder(a[0])-tailOrder(b[0])||b[1]-a[1]);
+  $('sectors').innerHTML=sectorRows(ss.map(([k,v])=>[k,v,k===ELN?cnt[k]+'개':k===CASH?'':cnt[k]+'종목']));
+})();
+
+// ---- 월별 비중 기록
+(function(){
+  if(!HM||!HM.months.length){$('hmSec').hidden=true;return;}
+  const MS=HM.months, title=s=>s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+  const nm=k=>META.names_ko[k]||title((HM.names[k]||[k])[0]);
+  const sk=k=>{const s=(HM.names[k]||['',''])[1];return META.sectors_ko[s]||s||'기타';};
+  const md=s=>`${+s.slice(5,7)}/${+s.slice(8,10)}`;
+  const ym=s=>`${s.slice(0,4)}년 ${+s.slice(5,7)}월`;
+  const secOf=r=>{const o={};r.items.forEach(([k,w])=>{const s=sk(k);o[s]=(o[s]||0)+w;});if(r.eln)o[ELN]=r.eln;if(r.cash)o[CASH]=r.cash;return o;};
+  const last=secOf(MS[MS.length-1]);
+  const SEC=Object.keys(Object.assign({},...MS.map(secOf))).sort((a,b)=>tailOrder(a)-tailOrder(b)||(last[b]||0)-(last[a]||0));
+  const col=s=>{if(s===ELN)return'var(--eln)';if(s===CASH)return'var(--other)';const i=SEC.indexOf(s);return i<10?`var(--p${i+1})`:'var(--other)';};
+  $('hmCap').textContent=`${MS[0].month} ~ ${MS[MS.length-1].month} · ${MS.length}개월 · JPMorgan 공식 보유종목`;
+  $('hmSel').innerHTML=`<optgroup label="월별 기록 (매월 처음 받은 파일)">${[...MS].reverse().map(r=>`<option value="${r.month}">${ym(r.month)} (${md(r.asOf)})</option>`).join('')}</optgroup>`;
+  $('hmRebal').innerHTML=`JEPQ는 지수를 그대로 따라가지 않는 <b>액티브 ETF</b>라 정해진 리밸런싱일이 없습니다. JPMorgan은 과거 날짜의 보유종목 파일을 주지 않아, 이 트래커가 <b>${MS[0].month}부터</b> 매월 처음 받은 공식 파일을 쌓아 갑니다.`;
+  const sig=d=>{const r=Math.round(d*100)/100;const c=r>0?'up':r<0?'down':'flat';return{c,t:`${r>0?'+':r<0?'−':''}${Math.abs(r).toFixed(2)}%p`};};
+  const draw=mo=>{
+    const i=MS.findIndex(z=>z.month===mo), r=MS[i], p=i>0?{...MS[i-1],label:`${+MS[i-1].month.slice(5,7)}월`}:null;
+    $('hmSel').value=mo;
+    $('hmBasis').textContent=`${r.asOf} 기준 · JPMorgan 공시 · ELN ${r.elnCount||'-'}개`;
+    $('hmVs').textContent=p?`${p.label} 대비`:'';
+    const sc=secOf(r), sp=p?secOf(p):{};
+    $('hmSectors').innerHTML=sectorRows(Object.entries(sc).sort((a,b)=>tailOrder(a[0])-tailOrder(b[0])||b[1]-a[1]).map(([k,v])=>{
+      const d=p?sig(v-(sp[k]||0)):null; return [k,v,d?d.t:'',d?d.c:''];}));
+    const pw=p?Object.fromEntries(p.items.map(x=>[x[0],x[1]])):null;
+    const r2=v=>Math.round(v*100)/100, top=r.items.slice(0,10), topR=top.map(x=>r2(x[1])), topSum=r2(topR.reduce((a,b)=>a+b,0)), eln=r2(r.eln||0), other=r2(100-topSum-eln);
+    const segs=top.map((x,n)=>({k:x[0],n:nm(x[0]),v:topR[n],c:`var(--p${n+1})`})).concat([{k:'ELN',n:'ELN 합계',v:eln,c:'var(--eln)',big:true},{k:'기타',n:`나머지 ${r.items.length-10}종목·현금`,v:other,c:'var(--other)',big:true}]);
+    $('hmDonut').innerHTML=donutSVG(segs,topSum,eln,other);
+    $('hmTopCap').textContent=p?`비중 아래 숫자는 ${p.label} 대비`:'';
+    const dl=(k,w)=>!pw?'':pw[k]==null?'<span class="d up">신규</span>':(x=>`<span class="d ${x.c}">${x.t}</span>`)(sig(w-pw[k]));
+    $('hmTop').innerHTML=`<thead><tr><th>순위</th><th>종목</th><th>섹터</th><th>비중</th></tr></thead><tbody>`+top.map(([k,w],n)=>
+      `<tr><td class="num">${n+1}</td><td><span class="nm"><span class="sw" style="background:var(--p${n+1})"></span>${nm(k)}<span class="tk">${k}</span></span></td><td>${sk(k)}</td><td class="num">${topR[n].toFixed(2)}%${dl(k,w)}</td></tr>`).join('')
+      +`<tr class="other"><td>–</td><td><span class="nm"><span class="sw" style="background:var(--eln)"></span>ELN 합계<span class="tk">${r.elnCount||''}개</span></span></td><td>${ELN}</td><td class="num">${eln.toFixed(2)}%${p?(x=>`<span class="d ${x.c}">${x.t}</span>`)(sig(eln-(p.eln||0))):''}</td></tr>`
+      +`<tr class="other"><td>–</td><td><span class="nm"><span class="sw" style="background:var(--other)"></span>기타<span class="tk">나머지 ${r.items.length-10}종목·현금</span></span></td><td>–</td><td class="num">${other.toFixed(2)}%</td></tr>`
+      +`<tr class="sum"><td></td><td>합계</td><td></td><td class="num">100.00%</td></tr></tbody>`;
+    if(!p){$('hmMoves').innerHTML='<div class="hmmv cap">기록이 시작된 달이라 비교할 직전 달이 없습니다.</div>';}
+    else{
+      const a=new Set(r.items.map(x=>x[0])), b=new Set(p.items.map(x=>x[0]));
+      const ins=r.items.filter(x=>!b.has(x[0])), outs=p.items.filter(x=>!a.has(x[0]));
+      const chip=(x,c)=>`<span class="t ${c}" title="${x[1].toFixed(2)}%">${nm(x[0])} <span class="num">${x[0]}</span></span>`;
+      $('hmMoves').innerHTML=(ins.length||outs.length)
+        ?`<div class="hmmv"><b>신규 편입 ${ins.length}</b>${ins.map(x=>chip(x,'in')).join('')||'<span class="cap">없음</span>'}</div><div class="hmmv"><b>편출 ${outs.length}</b>${outs.map(x=>chip(x,'out')).join('')||'<span class="cap">없음</span>'}</div>`
+        :`<div class="hmmv cap">직전 달과 주식 종목 구성은 같고 비중만 바뀌었습니다.</div>`;
+    }
+    drawTrend(mo);
+  };
+  const drawTrend=sel=>{
+    const W=1000,H=190,n=Math.max(MS.length,12),bw=W/n; let g='';
+    MS.forEach((r,i)=>{const o=secOf(r); let y=H;
+      SEC.forEach(s=>{const v=o[s]||0; if(!v)return; const h=v/100*H; y-=h; g+=`<rect x="${(i*bw+bw*0.12).toFixed(2)}" y="${y.toFixed(2)}" width="${(bw*0.76).toFixed(2)}" height="${h.toFixed(2)}" fill="${col(s)}"><title>${r.month} ${s} ${v.toFixed(2)}%</title></rect>`;});
+      if(r.month===sel) g+=`<rect x="${(i*bw).toFixed(2)}" y="0" width="${bw.toFixed(2)}" height="${H}" fill="none" stroke="var(--ink)" stroke-width="3" vector-effect="non-scaling-stroke"/>`;
+      g+=`<rect x="${(i*bw).toFixed(2)}" y="0" width="${bw.toFixed(2)}" height="${H}" fill="transparent" data-m="${r.month}"/>`;});
+    $('hmTrend').innerHTML=g;
+  };
+  $('hmTrend').addEventListener('click',e=>{const m=e.target.getAttribute&&e.target.getAttribute('data-m'); if(m) draw(m);});
+  $('hmSel').addEventListener('change',e=>draw(e.target.value));
+  $('hmYrs').style.gridTemplateColumns=`repeat(${Math.max(MS.length,12)},minmax(0,1fr))`;
+  $('hmYrs').innerHTML=MS.map((r,i)=>`<span style="white-space:nowrap;overflow:visible">${(i===0||r.month.endsWith('-01'))?r.month.replace('-','.'):''}</span>`).join('');
+  $('hmLegend').innerHTML=SEC.map(s=>`<span><i style="background:${col(s)}"></i>${s}</span>`).join('');
+  draw(MS[MS.length-1].month);
+})();
+
+// ---- 국내 JEPQ형
+(function(){
+  const asof=new Date(AS_OF_KR), from=new Date(asof); from.setFullYear(from.getFullYear()-1);
+  const d=s=>new Date(s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8));
+  $('krAsOf').textContent=`${AS_OF_KR} 기준 최근 12개월`;
+  let h=`<thead><tr><th>종목</th><th>실부담비용</th><th>분배 시점</th><th>최근 분배금</th><th>12개월 분배금</th><th>12개월 분배율</th></tr></thead><tbody>`;
+  ORDER.forEach(c=>{const xs=KR[c].filter(x=>d(x[0])>from&&d(x[0])<=asof); const last=xs[xs.length-1];
+    h+=`<tr><td>${NAMES[c]} <span class="cap num">${c}</span>${LISTED[c]?`<span class="d flat">${LISTED[c].slice(0,4)}-${LISTED[c].slice(4,6)}-${LISTED[c].slice(6)} 상장</span>`:''}</td><td class="num">${(x=>x?`<span title="총보수 ${x.total_fee.toFixed(4)}% + 기타비용 ${x.other.toFixed(2)}% + 매매·중개수수료 ${x.trading.toFixed(4)}%${x.sales?` + 판매수수료 ${x.sales.toFixed(4)}%`:''} (KOFIA ${x.basis})">${x.real.toFixed(4)}%</span><span class="d flat">총보수 ${x.total_fee.toFixed(4)}%</span>`:`${(FEES[c]*100).toFixed(4)}%<span class="d flat">총보수</span>`)(COST[c])}</td><td>${TIMING[c]}</td><td class="num">${won(last[1])}<span class="d flat">${last[0].slice(0,4)}-${last[0].slice(4,6)}-${last[0].slice(6)}</span></td><td class="num">${won(xs.reduce((s,x)=>s+x[1],0))}<span class="d flat">${xs.length}회</span></td><td class="num">${(()=>{const sum=xs.reduce((s,x)=>s+x[1],0), px=last&&last[2]>0?last[1]/(last[2]/100):null; return px?`${(sum/px*100).toFixed(2)}%<span class="d flat">÷ ${won(px)}</span>`:'-';})()}</td></tr>`;});
+  const sl=R.filter(r=>new Date(r.ex)<=asof&&r.yld!=null).pop();
+  h+=`<tr class="ref"><td>JEPQ <span class="cap">미국 직투 · 참고</span></td><td class="num">${(META.jepq_fee*100).toFixed(2)}%<span class="d flat">총보수만 · 펀드 내부 매매비용 미포함</span></td><td>매월 (배당락 월초)</td><td class="num">${usd(sl.amt)}<span class="d flat">${sl.ex}</span></td><td class="num">${usd(sl.ttm)}<span class="d flat">12회</span></td><td class="num">${(sl.yld*100).toFixed(2)}%</td></tr></tbody>`;
+  $('krtable').innerHTML=h;
+  const cb=ORDER.map(c=>COST[c]&&COST[c].basis).filter(Boolean).sort().pop();
+  $('krCostCap').textContent=cb?`실부담비용 = 총보수 + 기타비용 + 매매·중개수수료(+판매수수료), 금융투자협회 공시 ${cb} 기준 (월 1회 공시, 약 한 달 늦게 공개). 숫자에 마우스를 올리면 항목별 금액이 보입니다. JEPQ ${(META.jepq_fee*100).toFixed(2)}%는 총보수(Expense Ratio)만이라, 펀드 내부 매매비용까지 넣은 국내 ETF 실부담비용과 기준이 다릅니다. 투자자가 직접 내는 증권사 수수료·환전 비용은 양쪽 모두 이 표에 없습니다.`:'';
+  // 월 합계: 평소엔 최근 12개월, 펼치면 가장 먼저 분배한 종목의 첫 달부터 전부
+  const first=ORDER.map(c=>KR[c][0][0]).sort()[0], fy=+first.slice(0,4), fm=+first.slice(4,6);
+  const all=[];{let y=asof.getFullYear(),m=asof.getMonth()+1;
+    while(y>fy||(y===fy&&m>=fm)){all.unshift([y,m]);m--;if(!m){m=12;y--;}}}
+  let krAll=false;
+  const drawKRQ=()=>{
+  const ms=krAll?all:all.slice(-12);
+  let t=`<thead><tr><th>월 합계</th>${ORDER.map(c=>`<th>${NAMES[c].split(' ')[0]}<br><span class="cap num">${c}</span></th>`).join('')}<th>JEPQ (USD)<br><span class="cap">지급월</span></th></tr></thead><tbody>`;
+  [...ms].reverse().forEach(([yy,mm])=>{t+=`<tr><td class="yr">${yy}.${String(mm).padStart(2,'0')}</td>`;
+    ORDER.forEach(c=>{const key=`${yy}${String(mm).padStart(2,'0')}`, pkey=`${yy-1}${String(mm).padStart(2,'0')}`;
+      const xs=KR[c].filter(x=>x[0].slice(0,6)===key), prev=KR[c].filter(x=>x[0].slice(0,6)===pkey);
+      const s=xs.reduce((a,x)=>a+x[1],0), p=prev.reduce((a,x)=>a+x[1],0), ls=LISTED[c];
+      if(!xs.length&&ls&&`${key}31`<ls){t+=`<td class="num"><span class="d flat">상장 전</span></td>`;return;}
+      t+=xs.length?`<td class="num">${won(s)}${p&&prev.length===xs.length?`<span class="d ${cls(s/p-1)}">${pct(s/p-1,1)}</span>`:''}</td>`:`<td class="na num">·</td>`;});
+    const r=find(yy,mm);
+    t+=r?`<td class="num">${usd(r.amt)}${r.yoy!=null?`<span class="d ${cls(r.yoy)}">${pct(r.yoy,1)}</span>`:''}</td>`:'<td class="na">·</td>';
+    t+='</tr>';});
+  $('krq').innerHTML=t+'</tbody>';
+  const b=$('krqToggle'); b.setAttribute('aria-expanded',krAll);
+  b.textContent=krAll?'최근 12개월만 보기 ▴':`이전 달 모두 보기 ▾ (${fy}.${String(fm).padStart(2,'0')}부터 ${all.length}개월)`;
+  b.hidden=all.length<=12;
+  };
+  $('krqToggle').addEventListener('click',()=>{krAll=!krAll;drawKRQ();});
+  drawKRQ();
+  $('krNote').innerHTML=`<p class="kh">세 종목은 왜 분배율이 이렇게 다른가요?</p>
+    <p>모두 나스닥100에 커버드콜(콜옵션 매도)을 더한 상품이지만, 따라가는 지수의 옵션 전략이 서로 다르고 JEPQ와도 다릅니다.</p>
+    <ol>${ORDER.map(c=>`<li><b>${NAMES[c]}</b><br>기초지수: ${INDEX[c]}</li>`).join('')}
+      <li><b>JEPQ</b><br>지수를 따르지 않는 액티브 ETF · 나스닥100 위주 주식 + 콜옵션 매도 수익을 담은 ELN(현재 비중은 위 구성종목 참고)</li></ol>
+    <p>옵션을 더 많이, 더 자주 팔수록 분배는 커지지만 주가가 오를 때 따라가는 몫은 줄어드는 구조입니다. 분배율만으로 우열을 가릴 수 없으니 같은 기간 총수익(분배 재투자 포함)을 함께 보세요.</p>`;
+})();
+}
+boot();
+</script>
+
+</body>
+</html>

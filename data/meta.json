@@ -1,0 +1,177 @@
+{
+ "updated": "2026-11-01",
+ "splits": [],
+ "names_ko": {
+  "AAPL": "애플",
+  "NVDA": "엔비디아",
+  "MSFT": "마이크로소프트",
+  "MU": "마이크론",
+  "GOOG": "알파벳 C",
+  "GOOGL": "알파벳 A",
+  "AMZN": "아마존",
+  "AMD": "AMD",
+  "META": "메타",
+  "TSLA": "테슬라",
+  "WMT": "월마트",
+  "AVGO": "브로드컴",
+  "LRCX": "램리서치",
+  "PANW": "팔로알토 네트웍스",
+  "PLTR": "팔란티어",
+  "COST": "코스트코",
+  "STX": "씨게이트",
+  "ADI": "아날로그 디바이스",
+  "CSCO": "시스코",
+  "NFLX": "넷플릭스",
+  "ASML": "ASML",
+  "INTC": "인텔",
+  "QCOM": "퀄컴",
+  "TXN": "텍사스 인스트루먼트",
+  "AMAT": "어플라이드 머티어리얼즈",
+  "KLAC": "KLA",
+  "INTU": "인튜이트",
+  "ISRG": "인튜이티브 서지컬",
+  "PEP": "펩시코",
+  "ADBE": "어도비",
+  "TMUS": "T모바일 US",
+  "BKNG": "부킹홀딩스",
+  "AMGN": "암젠",
+  "GILD": "길리어드",
+  "HON": "하니웰",
+  "SBUX": "스타벅스",
+  "MDLZ": "몬델리즈",
+  "ABNB": "에어비앤비",
+  "CRWD": "크라우드스트라이크",
+  "MELI": "메르카도리브레",
+  "SNPS": "시놉시스",
+  "CDNS": "케이던스",
+  "MRVL": "마벨",
+  "ORLY": "오라일리",
+  "APP": "앱러빈",
+  "WDC": "웨스턴디지털",
+  "SPCX": "스페이스X"
+ },
+ "sectors_ko": {
+  "Information Technology": "정보기술",
+  "Consumer Discretionary": "경기소비재",
+  "Communication Services": "커뮤니케이션",
+  "Health Care": "헬스케어",
+  "Consumer Staples": "필수소비재",
+  "Industrials": "산업재",
+  "Financials": "금융",
+  "Utilities": "유틸리티",
+  "Materials": "소재",
+  "Energy": "에너지",
+  "Real Estate": "부동산",
+  "ELN": "ELN(옵션 프리미엄)",
+  "": "현금·단기자금"
+ },
+ "withholding": 0.15,
+ "jepq_fee": 0.0035,
+ "official": {
+  "sec_yield": {
+   "value": 0.1147,
+   "asOf": "2026-10-29"
+  },
+  "rolling_12m": {
+   "value": 0.1172,
+   "asOf": "2026-10-30"
+  },
+  "dist_yield": {
+   "value": 0.116,
+   "asOf": "2026-10-30"
+  },
+  "nav": {
+   "value": 57.5556,
+   "asOf": "2026-10-30"
+  },
+  "aum": {
+   "value": 42491860922,
+   "asOf": "2026-10-30"
+  },
+  "expense": 0.0035,
+  "source": "J.P. Morgan Asset Management JEPQ 상품 데이터",
+  "url": "https://am.jpmorgan.com/us/en/asset-management/adv/products/jpmorgan-nasdaq-equity-premium-income-etf-etf-shares-46654q203",
+  "checked": "2026-11-01"
+ },
+ "schedule": {
+  "rows": [
+   {
+    "ex": "2026-02-02",
+    "record": "2026-02-02",
+    "pay": "2026-02-04",
+    "kind": "income"
+   },
+   {
+    "ex": "2026-03-02",
+    "record": "2026-03-02",
+    "pay": "2026-03-04",
+    "kind": "income"
+   },
+   {
+    "ex": "2026-04-01",
+    "record": "2026-04-01",
+    "pay": "2026-04-06",
+    "kind": "income"
+   },
+   {
+    "ex": "2026-05-01",
+    "record": "2026-05-01",
+    "pay": "2026-05-05",
+    "kind": "income"
+   },
+   {
+    "ex": "2026-06-01",
+    "record": "2026-06-01",
+    "pay": "2026-06-03",
+    "kind": "income"
+   },
+   {
+    "ex": "2026-07-01",
+    "record": "2026-07-01",
+    "pay": "2026-07-06",
+    "kind": "income"
+   },
+   {
+    "ex": "2026-08-03",
+    "record": "2026-08-03",
+    "pay": "2026-08-05",
+    "kind": "income"
+   },
+   {
+    "ex": "2026-09-01",
+    "record": "2026-09-01",
+    "pay": "2026-09-03",
+    "kind": "income"
+   },
+   {
+    "ex": "2026-10-01",
+    "record": "2026-10-01",
+    "pay": "2026-10-05",
+    "kind": "income"
+   },
+   {
+    "ex": "2026-11-02",
+    "record": "2026-11-02",
+    "pay": "2026-11-04",
+    "kind": "income"
+   },
+   {
+    "ex": "2026-12-01",
+    "record": "2026-12-01",
+    "pay": "2026-12-03",
+    "kind": "income"
+   },
+   {
+    "ex": "2026-12-15",
+    "record": "2026-12-15",
+    "pay": "2026-12-17",
+    "kind": "capgain"
+   }
+  ],
+  "urls": {
+   "2026": "https://am.jpmorgan.com/content/dam/jpm-am-aem/americas/us/en/supplemental/income-distribution-rates/jpmorgan-etfs-2026-distribution-notice.pdf"
+  },
+  "source": "J.P. Morgan Exchange-Traded Fund Trust Dividend Calendar (PDF)",
+  "checked": "2026-11-01"
+ }
+}
