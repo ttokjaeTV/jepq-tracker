@@ -309,7 +309,7 @@ tr.sum td{border-top:1px solid var(--ink);font-weight:700}
     <div class="panel scroll"><table id="krtable"></table></div>
     <span class="cap" id="krCostCap"></span>
     <div class="panel"><div class="scroll"><table id="krq"></table></div><button type="button" class="htoggle" id="krqToggle" aria-expanded="false"></button></div>
-    <span class="cap">12개월 분배율 = 최근 12개월 분배금 합 ÷ 최근 분배 때 1좌 가격(작은 숫자 · FunETF 회차 분배율로 역산). JEPQ 행은 최근 12회 분배 합 ÷ 최근 배당락일 종가입니다.</span>
+    <span class="cap">12개월 분배율 = 12개월 분배금 합계 ÷ 기준 가격. 기준 가격은 국내 ETF는 최근 분배 시점 1좌 가격(최근 분배금 ÷ 회차 분배율로 역산), JEPQ는 최근 배당락일 종가입니다. 회차별 분배율을 더한 값이 아닙니다. JEPQ 행은 기준일 이전 마지막 배당락까지 12회라, 위쪽 요약의 TTM(최신 분배 포함)과 기준일 이후 분배만큼 다를 수 있습니다. 표의 작은 숫자는 기준 가격입니다.</span>
     <span class="cap">월 합계는 국내 ETF는 분배 기준일(매월 말)이 속한 달, JEPQ는 지급일이 속한 달로 묶었습니다. 국내 ETF의 월말 기준일 분배금은 다음 달 초에 들어오므로, 같은 줄의 JEPQ 분배와 입금 시기가 비슷합니다. 작은 숫자는 작년 같은 달 대비입니다.</span>
     <div class="knote" id="krNote"></div>
   </section>
@@ -743,7 +743,7 @@ const tailOrder=k=>k===ELN?1:k===CASH?2:0;
   ORDER.forEach(c=>{const xs=KR[c].filter(x=>d(x[0])>from&&d(x[0])<=asof); const last=xs[xs.length-1];
     h+=`<tr><td>${NAMES[c]} <span class="cap num">${c}</span>${LISTED[c]?`<span class="d flat">${LISTED[c].slice(0,4)}-${LISTED[c].slice(4,6)}-${LISTED[c].slice(6)} 상장</span>`:''}</td><td class="num">${(x=>x?`<span title="총보수 ${x.total_fee.toFixed(4)}% + 기타비용 ${x.other.toFixed(2)}% + 매매·중개수수료 ${x.trading.toFixed(4)}%${x.sales?` + 판매수수료 ${x.sales.toFixed(4)}%`:''} (KOFIA ${x.basis})">${x.real.toFixed(4)}%</span><span class="d flat">총보수 ${x.total_fee.toFixed(4)}%</span>`:`${(FEES[c]*100).toFixed(4)}%<span class="d flat">총보수</span>`)(COST[c])}</td><td>${TIMING[c]}</td><td class="num">${won(last[1])}<span class="d flat">${last[0].slice(0,4)}-${last[0].slice(4,6)}-${last[0].slice(6)}</span></td><td class="num">${won(xs.reduce((s,x)=>s+x[1],0))}<span class="d flat">${xs.length}회</span></td><td class="num">${(()=>{const sum=xs.reduce((s,x)=>s+x[1],0), px=last&&last[2]>0?last[1]/(last[2]/100):null; return px?`${(sum/px*100).toFixed(2)}%<span class="d flat">÷ ${won(px)}</span>`:'-';})()}</td></tr>`;});
   const sl=R.filter(r=>new Date(r.ex)<=asof&&r.yld!=null).pop();
-  h+=`<tr class="ref"><td>JEPQ <span class="cap">미국 직투 · 참고</span></td><td class="num">${(META.jepq_fee*100).toFixed(2)}%<span class="d flat">총보수만 · 펀드 내부 매매비용 미포함</span></td><td>매월 (배당락 월초)</td><td class="num">${usd(sl.amt)}<span class="d flat">${sl.ex}</span></td><td class="num">${usd(sl.ttm)}<span class="d flat">12회</span></td><td class="num">${(sl.yld*100).toFixed(2)}%</td></tr></tbody>`;
+  h+=`<tr class="ref"><td>JEPQ <span class="cap">미국 직투 · 참고</span></td><td class="num">${(META.jepq_fee*100).toFixed(2)}%<span class="d flat">총보수만 · 펀드 내부 매매비용 미포함</span></td><td>매월 (배당락 월초)</td><td class="num">${usd(sl.amt)}<span class="d flat">${sl.ex}</span></td><td class="num">${usd(sl.ttm)}<span class="d flat">12회 · ~${sl.ex}</span></td><td class="num">${(sl.yld*100).toFixed(2)}%<span class="d flat">÷ ${usd(sl.close,2)}</span></td></tr></tbody>`;
   $('krtable').innerHTML=h;
   const cb=ORDER.map(c=>COST[c]&&COST[c].basis).filter(Boolean).sort().pop();
   $('krCostCap').textContent=cb?`실부담비용 = 총보수 + 기타비용 + 매매·중개수수료(+판매수수료), 금융투자협회 공시 ${cb} 기준 (월 1회 공시, 약 한 달 늦게 공개). 숫자에 마우스를 올리면 항목별 금액이 보입니다. JEPQ ${(META.jepq_fee*100).toFixed(2)}%는 총보수(Expense Ratio)만이라, 펀드 내부 매매비용까지 넣은 국내 ETF 실부담비용과 기준이 다릅니다. 투자자가 직접 내는 증권사 수수료·환전 비용은 양쪽 모두 이 표에 없습니다.`:'';

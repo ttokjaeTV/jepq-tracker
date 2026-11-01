@@ -104,7 +104,7 @@ notes=[
  '· 연간 성장률은 12회 분배가 모두 확정된 해만 계산합니다. 2022년은 상장(5월) 첫해라 7회뿐이고, 진행 중인 해는 [연도별] 시트의 \'올해 누적 vs 작년 동기\'로 봅니다.',
  '· 진행 중인 해의 남은 달 \'예상\' 값은 그해 확정 월의 단순 평균입니다. 옵션 프리미엄은 변동성에 따라 크게 달라지니 참고용입니다.',
  '· 이 파일은 GitHub에서 새 분배가 반영될 때마다 다시 만들어집니다(차트 범위도 자동). 손으로 고친 내용은 다음 생성 때 덮어써지니, 고칠 값은 data 폴더 JSON에서 고치세요.',
- '· 국내 JEPQ형 ETF 분배율은 매월 기준일 가격 대비 분배율을 12개월 합산한 값입니다(근사치).',
+ '· 국내 JEPQ형 ETF의 12개월 분배율 = 12개월 분배금 합계 ÷ 기준 가격(최근 분배 시점 1좌 가격 = 최근 분배금 ÷ 회차 분배율로 역산). JEPQ 행은 12회 분배 합 ÷ 최근 배당락일 종가. 화면과 같은 계산입니다.',
 ]
 for n in notes:
     c=G.cell(r,2,n); c.font=f_n; G.merge_cells(start_row=r,start_column=2,end_row=r,end_column=3); r+=1
@@ -292,7 +292,9 @@ V['A3']='비교 기준일'; V['A3'].font=f_b
 V['B3']=KR_ASOF; V['B3'].font=f_in; V['B3'].fill=key_fill; V['B3'].number_format=DATE
 V['C3']='← 매월 월말로 바꾸세요. 아래 표가 이 날짜 기준 최근 12개월로 다시 계산됩니다.'; V['C3'].font=f_s
 hrow=5
-header(V,hrow,['종목','코드','실부담비용\n(연)','분배\n시점','최근 분배일','최근 분배금','12개월\n분배 횟수','12개월\n분배금 합계','12개월\n분배율 합계','기초지수'],[34,9,9,10,12,11,9,12,11,44])
+header(V,hrow,['종목','코드','실부담비용\n(연)','분배\n시점','최근 분배일','최근 분배금','12개월\n분배 횟수','12개월\n분배금 합계','기준 가격\n(1좌)','12개월\n분배율','기초지수'],[34,9,9,10,12,11,9,12,11,11,44])
+V.cell(hrow,9).comment=Comment('기준 가격 = 최근 분배 시점 1좌 가격. 국내 ETF는 최근 분배금 ÷ 그 회차 분배율([국내JEPQ형_분배] E열)로 역산, JEPQ는 최근 배당락일 종가.','tracker')
+V.cell(hrow,10).comment=Comment('12개월 분배율 = 12개월 분배금 합계 ÷ 기준 가격. 회차별 분배율을 더한 값이 아닙니다. 화면(index.html)과 같은 계산.','tracker')
 V.row_dimensions[hrow].height=34
 for j,code in enumerate(order):
     rr=hrow+1+j
@@ -305,11 +307,12 @@ for j,code in enumerate(order):
     V.cell(rr,6,f'=SUMIFS({KR("D")},{KR("A")},$B{rr},{KR("C")},E{rr})').number_format=KRW0
     V.cell(rr,7,f'=COUNTIFS({KR("A")},$B{rr},{KR("C")},">"&EDATE($B$3,-12),{KR("C")},"<="&$B$3)')
     V.cell(rr,8,f'=SUMIFS({KR("D")},{KR("A")},$B{rr},{KR("C")},">"&EDATE($B$3,-12),{KR("C")},"<="&$B$3)').number_format=KRW0
-    V.cell(rr,9,f'=SUMIFS({KR("E")},{KR("A")},$B{rr},{KR("C")},">"&EDATE($B$3,-12),{KR("C")},"<="&$B$3)').number_format=PCT
-    V.cell(rr,10,KRJ['etfs'][code].get('index','')).font=f_s
-    for col in range(1,11):
+    V.cell(rr,9,f'=IFERROR(F{rr}/SUMIFS({KR("E")},{KR("A")},$B{rr},{KR("C")},E{rr}),"")').number_format=KRW0
+    V.cell(rr,10,f'=IFERROR(H{rr}/I{rr},"")').number_format=PCT
+    V.cell(rr,11,KRJ['etfs'][code].get('index','')).font=f_s
+    for col in range(1,12):
         V.cell(rr,col).border=bd
-        if 5<=col<=9: V.cell(rr,col).font=f_fx
+        if 5<=col<=10: V.cell(rr,col).font=f_fx
 sr=hrow+len(order)+2
 V.cell(sr,1,'JEPQ (미국 직투, 참고)').font=f_b
 V.cell(sr,2,'JEPQ')
@@ -319,14 +322,16 @@ V.cell(sr,5,f'=_xlfn.MAXIFS({RNG("C")},{RNG("C")},"<="&$B$3)').number_format=DAT
 V.cell(sr,6,f'=INDEX({RNG("E")},MATCH(E{sr},{RNG("C")},0))').number_format=USD4
 V.cell(sr,7,f'=COUNTIFS({RNG("C")},">"&EDATE($B$3,-12),{RNG("C")},"<="&$B$3)')
 V.cell(sr,8,f'=INDEX({RNG("H")},MATCH(E{sr},{RNG("C")},0))').number_format=USD4
-V.cell(sr,9,f'=INDEX({RNG("J")},MATCH(E{sr},{RNG("C")},0))').number_format=PCT
-V.cell(sr,10,'Nasdaq-100 주식 + ELN(나스닥100 콜옵션 매도), 액티브').font=f_s
-for col in range(1,11): V.cell(sr,col).border=bd
-V.cell(sr+1,1,'※ JEPQ 행: 금액은 USD, 수익률은 최근 12회 분배 ÷ 배당락일 종가. 0.35%는 JPMorgan 공시 순보수(펀드 내부 매매비용 미포함)라 국내 ETF 실부담비용과 기준이 다릅니다. 투자자가 내는 증권사 수수료·환전 비용은 양쪽 모두 제외.').font=f_s
+V.cell(sr,9,f'=INDEX({RNG("I")},MATCH(E{sr},{RNG("C")},0))').number_format='$0.00'
+V.cell(sr,10,f'=IFERROR(H{sr}/I{sr},"")').number_format=PCT
+V.cell(sr,11,'Nasdaq-100 주식 + ELN(나스닥100 콜옵션 매도), 액티브').font=f_s
+for col in range(1,12): V.cell(sr,col).border=bd
+V.cell(sr+1,1,'※ JEPQ 행: 금액은 USD, 12개월 분배율은 기준일 이전 마지막 배당락까지 12회 분배 합 ÷ 그 배당락일 종가(기준일 이후 분배가 빠져 [JEPQ_배당] 최신 분배 기준 TTM과 다를 수 있음). 0.35%는 JPMorgan 공시 순보수(펀드 내부 매매비용 미포함)라 국내 ETF 실부담비용과 기준이 다릅니다. 투자자가 내는 증권사 수수료·환전 비용은 양쪽 모두 제외.').font=f_s
 _cb=max((v['basis'] for v in cost.values() if v and v.get('real') is not None),default='')
 V.cell(sr+2,1,f"※ 국내 ETF 실부담비용 = 총보수 + 기타비용 + 매매·중개수수료(+판매수수료), 금융투자협회 공시 {_cb} 기준. 셀 메모에 항목별 금액.").font=f_s
 V.cell(sr+3,1,'※ 국내 3종은 옵션 전략(기초지수)이 서로 다르고 JEPQ와도 다릅니다. 분배율만으로 우열을 가릴 수 없고, 같은 기간 총수익률을 함께 보세요.').font=f_s
 V.cell(sr+4,1,'※ 국내상장 해외주식형 ETF 분배금은 배당소득세 15.4% 과세 (연금저축·IRP·ISA에서는 과세이연/비과세 혜택).').font=f_s
+V.cell(sr+5,1,'※ 12개월 분배율 = 12개월 분배금 합계 ÷ 기준 가격. 기준 가격은 국내 ETF는 최근 분배 시점 1좌 가격(최근 분배금 ÷ 회차 분배율로 역산), JEPQ는 최근 배당락일 종가입니다. 회차별 분배율을 더한 값이 아닙니다.').font=f_s
 
 # monthly table
 mr=sr+7
