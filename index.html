@@ -322,7 +322,7 @@ tr.sum td{border-top:1px solid var(--ink);font-weight:700}
       </div>
     </div>
     <div class="panel hmtrend">
-      <div class="sec-head" style="margin-bottom:10px"><h2 style="font-size:15px">섹터·ELN 비중 추이</h2><span class="cap">매월 처음 받은 공식 보유종목 · 막대를 누르면 그 달로 이동</span></div>
+      <div class="sec-head" style="margin-bottom:10px"><h2 style="font-size:15px">섹터·ELN 비중 추이</h2><span class="cap">분기말 SEC N-PORT + 매월 JPMorgan 공식 · 빈 칸은 공개 자료가 없는 달 · 막대를 누르면 그 달로 이동</span></div>
       <svg id="hmTrend" viewBox="0 0 1000 190" preserveAspectRatio="none" role="img" aria-label="월별 섹터·ELN 비중 누적 막대"></svg>
       <div class="hmyrs" id="hmYrs"></div>
       <div class="lgd" id="hmLegend"></div>
@@ -717,7 +717,7 @@ const tailOrder=k=>k===ELN?1:k===CASH?2:0;
   const segs=top.map((h,i)=>({k:h[0],n:h[2],v:topR[i],c:`var(--p${i+1})`}))
     .concat([{k:'ELN',n:`ELN ${elns.length}개 합계`,v:elnSum,c:'var(--eln)',big:true},{k:'기타',n:`나머지 ${stocks.length-10}종목·현금`,v:other,c:'var(--other)',big:true}]);
   const md=s=>`${+s.slice(5,7)}/${+s.slice(8,10)}`;
-  const prevRec=HM?[...HM.months].reverse().find(r=>r.month<HOLDJ.asOf.slice(0,7)):null;
+  const prevRec=HM?[...HM.months].reverse().find(r=>r.basis!=='nport'&&r.month<HOLDJ.asOf.slice(0,7)):null;
   const prevW=prevRec?Object.fromEntries(prevRec.items.map(x=>[x[0],x[1]])):null;
   $('holdAsOf').textContent=`${HOLDJ.asOf} 기준 · JPMorgan 공식 일별 보유종목 · 합계 100%`;
   $('holdTopCap').textContent=prevRec?`비중 아래 숫자는 ${md(prevRec.asOf)} 대비`:'';
@@ -762,21 +762,24 @@ const tailOrder=k=>k===ELN?1:k===CASH?2:0;
   if(!HM||!HM.months.length){$('hmSec').hidden=true;return;}
   const MS=HM.months, title=s=>s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
   const nm=k=>META.names_ko[k]||title((HM.names[k]||[k])[0]);
-  const sk=k=>{const s=(HM.names[k]||['',''])[1];return META.sectors_ko[s]||s||'기타';};
+  const sk=k=>{const s=(HM.names[k]||['',''])[1];return s?(META.sectors_ko[s]||s):'섹터 미확인';};
   const md=s=>`${+s.slice(5,7)}/${+s.slice(8,10)}`;
   const ym=s=>`${s.slice(0,4)}년 ${+s.slice(5,7)}월`;
   const secOf=r=>{const o={};r.items.forEach(([k,w])=>{const s=sk(k);o[s]=(o[s]||0)+w;});if(r.eln)o[ELN]=r.eln;if(r.cash)o[CASH]=r.cash;return o;};
   const last=secOf(MS[MS.length-1]);
   const SEC=Object.keys(Object.assign({},...MS.map(secOf))).sort((a,b)=>tailOrder(a)-tailOrder(b)||(last[b]||0)-(last[a]||0));
   const col=s=>{if(s===ELN)return'var(--eln)';if(s===CASH)return'var(--other)';const i=SEC.indexOf(s);return i<10?`var(--p${i+1})`:'var(--other)';};
-  $('hmCap').textContent=`${MS[0].month} ~ ${MS[MS.length-1].month} · ${MS.length}개월 · JPMorgan 공식 보유종목`;
-  $('hmSel').innerHTML=`<optgroup label="월별 기록 (매월 처음 받은 파일)">${[...MS].reverse().map(r=>`<option value="${r.month}">${ym(r.month)} (${md(r.asOf)})</option>`).join('')}</optgroup>`;
-  $('hmRebal').innerHTML=`JEPQ는 지수를 그대로 따라가지 않는 <b>액티브 ETF</b>라 정해진 리밸런싱일이 없습니다. JPMorgan은 과거 날짜의 보유종목 파일을 주지 않아, 이 트래커가 <b>${MS[0].month}부터</b> 매월 처음 받은 공식 파일을 쌓아 갑니다.`;
+  const OF=MS.filter(r=>r.basis!=='nport'), NP=MS.filter(r=>r.basis==='nport');
+  $('hmCap').textContent=`${MS[0].month} ~ ${MS[MS.length-1].month} · `+[NP.length?`분기말 ${NP.length}개(SEC N-PORT)`:'',OF.length?`월별 ${OF.length}개(JPMorgan 공식)`:''].filter(Boolean).join(' + ');
+  const opts=rs=>[...rs].reverse().map(r=>`<option value="${r.month}">${ym(r.month)} (${md(r.asOf)})</option>`).join('');
+  $('hmSel').innerHTML=(OF.length?`<optgroup label="JPMorgan 공식 (매월 처음 받은 파일)">${opts(OF)}</optgroup>`:'')+(NP.length?`<optgroup label="SEC N-PORT 분기말 공시">${opts(NP)}</optgroup>`:'');
+  $('hmRebal').innerHTML=`JEPQ는 지수를 그대로 따라가지 않는 <b>액티브 ETF</b>라 정해진 리밸런싱일이 없습니다. JPMorgan은 과거 날짜의 보유종목 파일을 주지 않아, 이 트래커가 <b>${OF.length?OF[0].month:'-'}부터</b> 매월 처음 받은 공식 파일을 쌓아 갑니다.`
+    +(NP.length?` 그 이전은 JEPQ가 SEC에 내는 <b>N-PORT 공시</b>(${NP[0].month}~${NP[NP.length-1].month})로 채웠습니다. N-PORT는 <b>분기말(3·6·9·12월 말) 보유종목만 약 60일 뒤 공개</b>되므로 사이 달은 비워 둡니다. 비중은 공식 파일과 같게 '시장가치 ÷ 합계(100%)'로 다시 계산했고(공시 순자산 대비 %와 조금 다름), 증권대여 담보 MMF·선물은 뺐습니다. 섹터는 JPMorgan 공식 파일에 나온 종목만 알 수 있어 나머지는 '섹터 미확인'입니다.`:'');
   const sig=d=>{const r=Math.round(d*100)/100;const c=r>0?'up':r<0?'down':'flat';return{c,t:`${r>0?'+':r<0?'−':''}${Math.abs(r).toFixed(2)}%p`};};
   const draw=mo=>{
     const i=MS.findIndex(z=>z.month===mo), r=MS[i], p=i>0?{...MS[i-1],label:`${+MS[i-1].month.slice(5,7)}월`}:null;
     $('hmSel').value=mo;
-    $('hmBasis').textContent=`${r.asOf} 기준 · JPMorgan 공시 · ELN ${r.elnCount||'-'}개`;
+    $('hmBasis').innerHTML=r.basis==='nport'?`${r.asOf} 기준 · <a href="https://www.sec.gov/Archives/edgar/data/1485894/${(r.accession||'').replace(/-/g,'')}/" target="_blank" rel="noopener">SEC N-PORT 분기말 공시</a> · ELN ${r.elnCount||'-'}개`:`${r.asOf} 기준 · JPMorgan 공시 · ELN ${r.elnCount||'-'}개`;
     $('hmVs').textContent=p?`${p.label} 대비`:'';
     const sc=secOf(r), sp=p?secOf(p):{};
     $('hmSectors').innerHTML=sectorRows(Object.entries(sc).sort((a,b)=>tailOrder(a[0])-tailOrder(b[0])||b[1]-a[1]).map(([k,v])=>{
@@ -799,13 +802,14 @@ const tailOrder=k=>k===ELN?1:k===CASH?2:0;
       const chip=(x,c)=>`<span class="t ${c}" title="${x[1].toFixed(2)}%">${nm(x[0])} <span class="num">${x[0]}</span></span>`;
       $('hmMoves').innerHTML=(ins.length||outs.length)
         ?`<div class="hmmv"><b>신규 편입 ${ins.length}</b>${ins.map(x=>chip(x,'in')).join('')||'<span class="cap">없음</span>'}</div><div class="hmmv"><b>편출 ${outs.length}</b>${outs.map(x=>chip(x,'out')).join('')||'<span class="cap">없음</span>'}</div>`
-        :`<div class="hmmv cap">직전 달과 주식 종목 구성은 같고 비중만 바뀌었습니다.</div>`;
+        :`<div class="hmmv cap">직전 기록과 주식 종목 구성은 같고 비중만 바뀌었습니다.</div>`;
     }
     drawTrend(mo);
   };
+  const mi=m=>+m.slice(0,4)*12+ +m.slice(5,7)-1, M0=mi(MS[0].month), NM=mi(MS[MS.length-1].month)-M0+1;
   const drawTrend=sel=>{
-    const W=1000,H=190,n=Math.max(MS.length,12),bw=W/n; let g='';
-    MS.forEach((r,i)=>{const o=secOf(r); let y=H;
+    const W=1000,H=190,n=Math.max(NM,12),bw=W/n; let g='';
+    MS.forEach(r=>{const i=mi(r.month)-M0, o=secOf(r); let y=H;
       SEC.forEach(s=>{const v=o[s]||0; if(!v)return; const h=v/100*H; y-=h; g+=`<rect x="${(i*bw+bw*0.12).toFixed(2)}" y="${y.toFixed(2)}" width="${(bw*0.76).toFixed(2)}" height="${h.toFixed(2)}" fill="${col(s)}"><title>${r.month} ${s} ${v.toFixed(2)}%</title></rect>`;});
       if(r.month===sel) g+=`<rect x="${(i*bw).toFixed(2)}" y="0" width="${bw.toFixed(2)}" height="${H}" fill="none" stroke="var(--ink)" stroke-width="3" vector-effect="non-scaling-stroke"/>`;
       g+=`<rect x="${(i*bw).toFixed(2)}" y="0" width="${bw.toFixed(2)}" height="${H}" fill="transparent" data-m="${r.month}"/>`;});
@@ -813,8 +817,8 @@ const tailOrder=k=>k===ELN?1:k===CASH?2:0;
   };
   $('hmTrend').addEventListener('click',e=>{const m=e.target.getAttribute&&e.target.getAttribute('data-m'); if(m) draw(m);});
   $('hmSel').addEventListener('change',e=>draw(e.target.value));
-  $('hmYrs').style.gridTemplateColumns=`repeat(${Math.max(MS.length,12)},minmax(0,1fr))`;
-  $('hmYrs').innerHTML=MS.map((r,i)=>`<span style="white-space:nowrap;overflow:visible">${(i===0||r.month.endsWith('-01'))?r.month.replace('-','.'):''}</span>`).join('');
+  $('hmYrs').style.gridTemplateColumns=`repeat(${Math.max(NM,12)},minmax(0,1fr))`;
+  $('hmYrs').innerHTML=Array.from({length:NM},(_,i)=>{const m=M0+i;return`<span style="white-space:nowrap;overflow:visible">${(i===0&&NM<13)?`${Math.floor(m/12)}.${String(m%12+1).padStart(2,'0')}`:(i===0||m%12===0)?Math.floor(m/12):''}</span>`;}).join('');
   $('hmLegend').innerHTML=SEC.map(s=>`<span><i style="background:${col(s)}"></i>${s}</span>`).join('');
   draw(MS[MS.length-1].month);
 })();

@@ -8,6 +8,9 @@ JPMorgan 일별 보유종목 엑셀(type=dailyETFHoldings) 한 장을 읽어 hol
   eln   : 주가연계채권(Equity Linked Notes, NDX_숫자). 나스닥100 콜옵션 매도 수익을 담는 상품
   cash  : 단기자금(MMF)·달러 현금
 비중(weight)은 '그 줄 시장가치 ÷ 전체 시장가치 × 100'(합계 100). 공시 '% of Net Assets'는 officialWeight 로 함께 둔다.
+
+과거 분기말(basis="nport")은 SEC EDGAR Form N-PORT(primary_doc.xml)에서 읽는다(parse_nport).
+N-PORT 비중 pctVal 은 순자산 대비라 합계가 100이 아니므로, 위와 같은 '시장가치 ÷ 포함한 줄 합계'로 다시 계산한다.
 """
 import datetime as dt
 import io
@@ -93,7 +96,48 @@ def parse_jpm_xlsx(content):
     return as_of, out
 
 
-def official_holdings(as_of, rows):
+NPORT_NS = "{http://www.sec.gov/edgar/nport}"
+
+
+def parse_nport(content, series_id):
+    """N-PORT XML 바이트 → (기준일 YYYY-MM-DD, 행 목록). 시리즈가 다르거나 형식이 이상하면 RuntimeError.
+    구분: assetCat EC → stock, SN(구조화채권) 중 제목에 ELN·linked to 가 있으면 → eln, STIV(단기자금 펀드) → cash, 나머지(권리 등) → other.
+    뺀 것: 증권대여 담보 재투자 MMF(같은 금액의 반환 부채가 있고 JPMorgan 일별 파일에도 없음),
+           선물 등 파생(DE·derivativeInfo — valUSD가 보유 금액이 아니라 평가손익)."""
+    import xml.etree.ElementTree as ET
+    n = NPORT_NS
+    root = ET.fromstring(content)
+    sid = root.findtext(f".//{n}genInfo/{n}seriesId")
+    as_of = root.findtext(f".//{n}genInfo/{n}repPdDate") or ""
+    if sid != series_id or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", as_of):
+        raise RuntimeError(f"N-PORT 시리즈·기준일이 이상함 ({sid}, {as_of})")
+    out = []
+    for s in root.iter(n + "invstOrSec"):
+        cat = s.findtext(n + "assetCat") or ""
+        title = (s.findtext(n + "title") or s.findtext(n + "name") or "").strip()
+        if cat.startswith("D") or s.find(n + "derivativeInfo") is not None or re.search(r"securities lending", title, re.I):
+            continue
+        if cat == "EC":
+            typ = "stock"
+        elif cat == "SN" and re.search(r"\bELN\b|linked to", title, re.I):
+            typ = "eln"
+        elif cat == "STIV":
+            typ = "cash"
+        else:
+            typ = "other"
+        ids = s.find(n + "identifiers")
+        isin = next((x.get("value") for x in (ids if ids is not None else []) if x.tag == n + "isin"), "") or ""
+        isin = "" if isin == "N/A" else isin
+        cusip = s.findtext(n + "cusip") or ""
+        out.append(dict(symbol=isin or cusip or title, name=(s.findtext(n + "name") or title).strip(), type=typ,
+                        secType=cat, sector="", isin=isin, title=title, shares=_num(s.findtext(n + "balance")),
+                        mv=round(_num(s.findtext(n + "valUSD")), 2), officialWeight=_num(s.findtext(n + "pctVal"))))
+    if sum(1 for x in out if x["type"] == "stock") < 50 or not any(x["type"] == "eln" for x in out):
+        raise RuntimeError(f"N-PORT {as_of} 주식·ELN 줄이 너무 적음 — 형식 확인 필요")
+    return as_of, out
+
+
+def official_holdings(as_of, rows, basis="official", source=SOURCE):
     total = sum(r["mv"] for r in rows)
     items = []
     for r in rows:
@@ -107,8 +151,8 @@ def official_holdings(as_of, rows):
         other=round(sum(i["weight"] for i in items if i["type"] == "other"), 4),
         stockCount=sum(1 for i in items if is_stock(i)), elnCount=len(eln),
         totalMV=round(total, 2))
-    return dict(asOf=as_of, basis="official", source=SOURCE,
-                official=dict(asOf=as_of, source=SOURCE), summary=summary, items=items)
+    return dict(asOf=as_of, basis=basis, source=source,
+                official=dict(asOf=as_of, source=source), summary=summary, items=items)
 
 
 def load(name):
@@ -135,20 +179,35 @@ def save_monthly(monthly):
 
 
 def add_month(monthly, h):
-    """그 달 기록이 없을 때만 추가(매월 처음 받은 공식 파일). 추가했으면 True.
-    items 는 주식만 [기호, 비중%, 보유 주식 수]. ELN·현금은 합계 비중만 남긴다."""
+    """그 달 기록이 없을 때만 추가(매월 처음 받은 공식 파일, 또는 SEC N-PORT 분기말). 추가했으면 True.
+    items 는 주식만 [기호, 비중%, 보유 주식 수]. ELN·현금은 합계 비중만 남긴다.
+    N-PORT 에는 섹터가 없으므로 names 는 JPMorgan 공식 값을 덮어쓰지 않는다."""
     month = h["asOf"][:7]
     if any(m["month"] == month for m in monthly["months"]):
         return False
     items = h["items"]
     s = h["summary"]
     rec = dict(month=month, asOf=h["asOf"], basis=h["basis"], eln=s["eln"], elnCount=s["elnCount"],
-               cash=s["cash"],
+               cash=s["cash"], **({"accession": h["accession"]} if h.get("accession") else {}),
                items=[[i["symbol"], round(i["weight"], 4), i["shares"]]
                       for i in sorted(items, key=lambda x: -x["weight"]) if is_stock(i)])
     for i in items:
-        if is_stock(i):
+        if is_stock(i) and (h["basis"] == "official" or i["symbol"] not in monthly["names"]):
             monthly["names"][i["symbol"]] = [i["name"], i["sector"]]
     monthly["months"].append(rec)
     monthly["months"].sort(key=lambda m: m["month"])
     return True
+
+
+if __name__ == "__main__":  # 자체 점검: python scripts/holdings_lib.py
+    sec = lambda cat, t, v: (f"<invstOrSec><name>{t}</name><title>{t}</title><balance>1</balance>"
+                             f"<valUSD>{v}</valUSD><pctVal>{v}</pctVal><assetCat>{cat}</assetCat></invstOrSec>")
+    x = (f'<edgarSubmission xmlns="{NPORT_NS[1:-1]}"><formData><genInfo><seriesId>S1</seriesId>'
+         "<repPdDate>2026-06-30</repPdDate></genInfo><invstOrSecs>"
+         + "".join(sec("EC", f"S{i}", 1) for i in range(50)) + sec("SN", "BARCLAYS ELN", 40)
+         + sec("SN", "Note linked to S&amp;P 500", 5) + sec("STIV", "JPM Prime MMF", 5)
+         + sec("STIV", "JPM Securities Lending MMF", 99) + sec("DE", "Future", 3) + "</invstOrSecs></formData></edgarSubmission>")
+    d, rows = parse_nport(x, "S1")
+    s = official_holdings(d, rows, basis="nport")["summary"]
+    assert (d, len(rows), s["stock"], s["eln"], s["cash"], s["elnCount"]) == ("2026-06-30", 53, 50.0, 45.0, 5.0, 2), s
+    print("parse_nport ok")

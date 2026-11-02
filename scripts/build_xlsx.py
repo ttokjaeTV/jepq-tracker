@@ -92,7 +92,7 @@ src=[
  ('국내 JEPQ형 분배금','FunETF 분배금 이력 (기준일·분배금·분배율) — 운용사 공시와 같은 원천'),
  ('국내 ETF 실부담비용',KRJ.get('cost_source','')+' — 기준일은 [국내JEPQ형_비교] 시트 메모'),
  ('국내 ETF 총보수(참고)',KRJ['fee_source']),
- ('구성종목·월별 비중','JPMorgan 공식 일별 보유종목 엑셀(Daily Holdings) — 매일 자동 수집. 과거 날짜 파일은 제공되지 않아 2026-10부터 매월 첫 기록을 쌓습니다'),
+ ('구성종목·월별 비중','JPMorgan 공식 일별 보유종목 엑셀(Daily Holdings) — 매일 자동 수집. 과거 날짜 파일은 제공되지 않아 2026-10부터 매월 첫 기록을 쌓습니다. 그 이전은 SEC EDGAR Form N-PORT 분기말 공시(약 60일 뒤 공개, 매주 월요일 확인)'),
 ]
 for k,v in src:
     G.cell(r,2,k).font=f_n; c=G.cell(r,3,v); c.font=f_n; c.alignment=Alignment(wrap_text=True); r+=1
@@ -560,15 +560,16 @@ P.add_chart(pc,'H3')
 # ---------------- 월별 비중 (매월 첫 기록) ----------------
 HMJ=J('holdings_monthly'); MSX=HMJ['months']
 M=wb.create_sheet('월별_비중')
-M['A1']='JEPQ 월별 구성 비중 (매월 처음 받은 공식 보유종목)'; M['A1'].font=f_t
-M['A2']=(f"{MSX[0]['month']} ~ {MSX[-1]['month']} · JPMorgan 공식 일별 보유종목 · 빈칸 = 그 달엔 보유하지 않음 · JPMorgan이 과거 날짜 파일을 주지 않아 {MSX[0]['month']}부터 쌓습니다") if MSX else '아직 기록 없음'; M['A2'].font=f_s
+M['A1']='JEPQ 월별 구성 비중 (분기말 SEC N-PORT + 매월 처음 받은 JPMorgan 공식 보유종목)'; M['A1'].font=f_t
+BL={'official':'JPMorgan 공식','nport':'SEC N-PORT'}
+M['A2']=(f"{MSX[0]['month']} ~ {MSX[-1]['month']} · 열 머리 셋째 줄 = 출처 · SEC N-PORT는 분기말(3·6·9·12월 말)만 약 60일 뒤 공개돼 사이 달은 열이 없음 · N-PORT 비중은 시장가치 ÷ 합계(100%)로 다시 계산(증권대여 담보 MMF·선물 제외) · 빈칸 = 그 달엔 보유하지 않음") if MSX else '아직 기록 없음'; M['A2'].font=f_s
 hr=4
 for j,(tl,w) in enumerate([('티커',8),('종목',24),('섹터',14)],1):
     c=M.cell(hr,j,tl); c.font=f_hd; c.fill=hd_fill; c.alignment=C; M.column_dimensions[L(j)].width=w
 for k,m in enumerate(MSX):
-    c=M.cell(hr,4+k,f"{m['month']}\n{m['asOf'][5:]}"); c.font=f_hd; c.fill=hd_fill; c.alignment=C
+    c=M.cell(hr,4+k,f"{m['month']}\n{m['asOf'][5:]}\n{BL.get(m['basis'],m['basis'])}"); c.font=f_hd; c.fill=hd_fill; c.alignment=C
     M.column_dimensions[L(4+k)].width=9
-M.row_dimensions[hr].height=30
+M.row_dimensions[hr].height=44
 if MSX:
     # ELN·현금 합계 줄 먼저
     for i,(lab,key) in enumerate([('ELN 합계 (옵션 프리미엄)','eln'),('현금·단기자금','cash')]):
@@ -582,7 +583,7 @@ if MSX:
     syms=sorted(HMJ['names'],key=lambda k:(-lastw.get(k,-1),-max(W[m['month']].get(k,0) for m in MSX)))
     for i,k in enumerate(syms):
         rr=hr+3+i; nm,sec=HMJ['names'][k]
-        M.cell(rr,1,k).font=f_n; M.cell(rr,2,KN.get(k) or nm.title()).font=f_n; M.cell(rr,3,SKD.get(sec,sec)).font=f_n
+        M.cell(rr,1,k).font=f_n; M.cell(rr,2,KN.get(k) or nm.title()).font=f_n; M.cell(rr,3,SKD.get(sec,sec) if sec else '섹터 미확인').font=f_n
         for kk,m in enumerate(MSX):
             v=W[m['month']].get(k)
             if v is not None:
@@ -591,14 +592,15 @@ if MSX:
             for col in range(1,4+len(MSX)): M.cell(rr,col).fill=band
 M.freeze_panes=M.cell(hr+1,4)
 S2=wb.create_sheet('월별_섹터')
-S2['A1']='JEPQ 월별 섹터·ELN 비중 (매월 처음 받은 공식 보유종목)'; S2['A1'].font=f_t
-secs=[k for _,k in SK]
-header(S2,3,['월','기준일','방식']+secs+[ELN_K,'현금'],[9,12,9]+[11]*(len(secs)+2))
+S2['A1']='JEPQ 월별 섹터·ELN 비중 (분기말 SEC N-PORT + 매월 JPMorgan 공식)'; S2['A1'].font=f_t
+S2['A2']="SEC N-PORT에는 섹터가 없어 JPMorgan 공식 파일에 나온 종목만 섹터를 붙이고 나머지는 '섹터 미확인'. 분기말만 공개돼 사이 달은 줄이 없음"; S2['A2'].font=f_s
+secs=[k for _,k in SK]+['섹터 미확인']
+header(S2,3,['월','기준일','출처']+secs+[ELN_K,'현금'],[9,12,14]+[11]*(len(secs)+2))
 for i,m in enumerate(MSX):
     rr=4+i; agg={}
     for kk,w,*_ in m['items']:
-        sk_=SKD.get(HMJ['names'][kk][1],HMJ['names'][kk][1]); agg[sk_]=agg.get(sk_,0)+w
-    S2.cell(rr,1,m['month']); S2.cell(rr,2,dt.date.fromisoformat(m['asOf'])).number_format=DATE; S2.cell(rr,3,m['basis']).font=f_s
+        sec=HMJ['names'][kk][1]; sk_=SKD.get(sec,sec) if sec else '섹터 미확인'; agg[sk_]=agg.get(sk_,0)+w
+    S2.cell(rr,1,m['month']); S2.cell(rr,2,dt.date.fromisoformat(m['asOf'])).number_format=DATE; S2.cell(rr,3,BL.get(m['basis'],m['basis'])).font=f_s
     for j,sname in enumerate(secs):
         if agg.get(sname): c=S2.cell(rr,4+j,agg[sname]/100); c.number_format='0.00%'; c.font=f_in
     c=S2.cell(rr,4+len(secs),m.get('eln',0)/100); c.number_format='0.00%'; c.font=f_in

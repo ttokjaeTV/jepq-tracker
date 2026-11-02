@@ -11,6 +11,7 @@ GitHub Actions가 매일 실행한다. 새 데이터가 있을 때만 data/*.jso
   분배   JPMorgan 상품 데이터(최신 1건, 공식) → Nasdaq.com 분배 이력(전체) → stockanalysis(최근 20건)
   주가   Yahoo(종가·수정주가) → Nasdaq.com 종가 + 분배 재투자 수정주가 직접 계산
   보유   JPMorgan 일별 보유종목 엑셀(공식)
+  과거 보유 SEC EDGAR Form N-PORT 분기말(공개분은 분기말만, 약 60일 뒤) — 월요일에만 확인, 티커는 OpenFIGI(ISIN→티커)
   수익률 JPMorgan 상품 데이터(30일 SEC·12개월 롤링 분배수익률·NAV·순자산)
   일정   JPMorgan 'ETF Dividend Calendar' PDF (연 1회)
 
@@ -53,6 +54,17 @@ NASDAQ_DIV = "https://api.nasdaq.com/api/quote/JEPQ/dividends?assetclass=etf"
 NASDAQ_PX = ("https://api.nasdaq.com/api/quote/JEPQ/historical?assetclass=etf"
              "&fromdate=2022-05-01&limit=9999&todate={d}")
 SA_DIV = "https://stockanalysis.com/etf/jepq/dividend/"
+# SEC N-PORT: 등록사 J.P. Morgan Exchange-Traded Fund Trust(CIK 1485894), JEPQ 시리즈
+NPORT_SERIES = "S000076132"
+SEC_UA = "ttokjaeTV research ttokjae@gmail.com"  # SEC 규칙: 연락처가 든 User-Agent, 초당 10회 미만
+NPORT_LIST = ("https://efts.sec.gov/LATEST/search-index?q=%22{s}%22&forms={f}"
+              "&dateRange=custom&startdt=2020-01-01")
+NPORT_DOC = "https://www.sec.gov/Archives/edgar/data/1485894/{a}/primary_doc.xml"
+# OpenFIGI에 미국 거래소 줄이 없는 옛 ISIN (상장폐지·ISIN 변경)
+FIGI_FIX = {"US4385161066": "HON", "US86800U1043": "SMCI"}
+FIGI = "https://api.openfigi.com/v3/mapping"
+# 분기말 + 약 60일에 공시되고 확인은 주 1회 → 정상이면 최근 분기말에서 길어야 ~160일. 넘으면 '확인 필요'
+NPORT_STALE_DAYS = 170
 
 # 새 분배가 직전 분배 대비 이 범위를 벗어나면 반영하지 않고 경고만 남긴다.
 # 2022-06 ~ 2026-11 월간 변화(53회): 표준편차 17%, 최대 +79%(2022-11, 상장 초기), 2023년 이후 최대 ±30.5%.
@@ -367,6 +379,102 @@ def update_holdings(force=False):
             changed.append("holdings_monthly")
 
 
+def sec_get(url):
+    for i in range(3):
+        time.sleep(0.2)  # 초당 10회 미만
+        try:
+            r = requests.get(url, headers={"User-Agent": SEC_UA, "Accept-Encoding": "gzip, deflate"}, timeout=60)
+            if r.status_code == 200 and r.content:
+                return r
+            last = f"HTTP {r.status_code}"
+        except Exception as e:  # noqa: BLE001
+            last = str(e)
+        time.sleep(3 * (i + 1))
+    raise RuntimeError(f"{url} → {last}")
+
+
+def nport_filings():
+    """분기말 → 가장 늦게 접수된 N-PORT(정정본 NPORT-P/A 가 있으면 그것) {adsh, form, file_date}."""
+    best = {}
+    for form in ("NPORT-P", "NPORT-P/A"):
+        for x in sec_get(NPORT_LIST.format(s=NPORT_SERIES, f=form)).json()["hits"]["hits"]:
+            x = x["_source"]
+            p = x["period_ending"]
+            if p not in best or x["file_date"] > best[p]["file_date"]:
+                best[p] = x
+    if not best:
+        raise RuntimeError("SEC 전문검색에서 N-PORT 목록이 비어 있음")
+    return best
+
+
+def figi_tickers(isins):
+    """OpenFIGI(키 없이 분당 25회·1회 10건)로 ISIN → 미국 상장 티커(BRK/B → BRK.B). 못 찾은 ISIN은 빠진다.
+    1차는 미국 통합(US) 상장, 못 찾으면 상장폐지·옛 ISIN까지(includeUnlistedEquities) 미국 거래소(U?) 줄에서 찾는다
+    (예: 분할 전 Lam Research 옛 ISIN → LRCX, 인수된 Seagen → SGEN)."""
+    out = {x: FIGI_FIX[x] for x in isins if x in FIGI_FIX}
+    for extra in ({"exchCode": "US"}, {"includeUnlistedEquities": True}):
+        todo = sorted(set(isins) - set(out))
+        for i in range(0, len(todo), 10):
+            part = todo[i:i + 10]
+            for _ in range(3):
+                r = requests.post(FIGI, json=[{"idType": "ID_ISIN", "idValue": x, **extra} for x in part], timeout=30)
+                if r.status_code != 429:
+                    break
+                time.sleep(30)
+            r.raise_for_status()
+            for x, res in zip(part, r.json()):
+                d = [y for y in res.get("data") or [] if y.get("ticker") and re.fullmatch(r"U[A-Z]", y.get("exchCode") or "")]
+                if d:
+                    out[x] = d[0]["ticker"].replace("/", ".")
+            time.sleep(2.5)
+    return out
+
+
+def update_nport(force=False):
+    """SEC N-PORT 분기말 보유종목을 holdings_monthly 에 basis='nport' 로 채운다.
+    그 달 기록(JPMorgan 공식 등)이 이미 있으면 건너뛴다. 월요일(또는 N-PORT 기록이 하나도 없을 때)에만 확인.
+    실패하면 기존 값을 그대로 두고, 최근 분기말에서 NPORT_STALE_DAYS 넘게 새 공시를 못 받으면 '확인 필요'."""
+    monthly = HL.load("holdings_monthly")
+    nport = [m["asOf"] for m in monthly["months"] if m["basis"] == "nport"]
+    if nport and not force and TODAY.weekday() != 0:
+        return
+    age = (TODAY - dt.date.fromisoformat(max(nport))).days if nport else 999
+    added = []
+    try:
+        have = {m["month"] for m in monthly["months"]}
+        imap = monthly.setdefault("isin", {})
+        byname = {}  # 옛 ISIN을 OpenFIGI가 못 찾을 때 같은 이름의 최근 분기 티커로 (예: Honeywell 옛 ISIN → HON)
+        for p, f in sorted(nport_filings().items(), reverse=True):
+            if p[:7] in have:
+                continue
+            as_of, rows = HL.parse_nport(sec_get(NPORT_DOC.format(a=f["adsh"].replace("-", ""))).content, NPORT_SERIES)
+            new = {r["isin"] for r in rows if HL.is_stock(r) and r["isin"] and r["isin"] not in imap}
+            if new:
+                imap.update(figi_tickers(new))
+            for r in rows:
+                sym = imap.get(r["isin"]) or byname.get(r["name"]) if HL.is_stock(r) else None
+                if sym:
+                    r["symbol"] = byname[r["name"]] = sym
+            miss = [r["name"] for r in rows if HL.is_stock(r) and r["symbol"] == r["isin"]]
+            if miss:
+                notes.append(f"N-PORT {as_of} 티커를 못 찾아 ISIN으로 표시: {', '.join(miss[:5])}")
+            h = HL.official_holdings(as_of, rows, basis="nport", source="SEC EDGAR Form N-PORT")
+            h["accession"] = f["adsh"]
+            if HL.add_month(monthly, h):
+                added.append(as_of)
+                age = min(age, (TODAY - dt.date.fromisoformat(as_of)).days)
+    except Exception as e:  # noqa: BLE001
+        (errors if age >= NPORT_STALE_DAYS else notes).append(
+            f"SEC N-PORT 분기말 보유종목 수집 실패, 기존 값 유지: {str(e)[:200]}")
+    else:
+        if age >= NPORT_STALE_DAYS:
+            errors.append(f"SEC N-PORT 최근 분기말 기록이 {age}일 전 — 새 분기 공시를 못 찾음")
+    if added:
+        HL.save_monthly(monthly)
+        changed.append("holdings_monthly")
+        notes.append("SEC N-PORT 분기말 보유종목 추가: " + ", ".join(added))
+
+
 # ---------------------------------------------------------------- 공식 수익률·분배 일정
 def update_official(meta, force=False):
     """JPMorgan 상품 데이터의 30일 SEC 수익률·12개월 롤링 분배수익률·분배수익률·NAV·순자산을 기준일과 함께 저장한다.
@@ -609,6 +717,7 @@ def main():
             save("dividends", divs)
     if a.only in (None, "holdings"):
         update_holdings(force=a.force_holdings)
+        update_nport(force=a.force_holdings)
     if a.only in (None, "kr_etf"):
         update_kr_etf()
         update_real_cost()
