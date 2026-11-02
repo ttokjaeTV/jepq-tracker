@@ -11,6 +11,7 @@ GitHub Actions가 매일 새 데이터를 확인해 자동으로 갱신합니다
 | `data/dividends.json` | JEPQ 분배 (배당락일·기준일·지급일·금액·배당락일 종가·지급일 환율·출처). 2022-06 첫 분배부터 전체 |
 | `data/holdings.json` | 구성종목 전체 목록(주식·ELN·현금). `asOf` = JPMorgan 공시 기준일 |
 | `data/holdings_monthly.json` | 월별 비중 기록: 매월 첫 JPMorgan 공식 파일(2026-10부터, `basis: official`) + SEC N-PORT 분기말 공시(2022-06~, `basis: nport`, `accession` = 공시 번호). `isin` = N-PORT ISIN → 티커 (한 달 = 한 줄, ELN 합계 포함) |
+| `data/sector_map.json` | N-PORT 종목의 섹터 보충표 `map`: 기호 → [섹터, 출처(wikipedia-sp500 / sec-sic:번호)]. JPMorgan 공식 섹터가 있는 종목은 공식 값이 우선 |
 | `data/kr_etf.json` | 국내 JEPQ형(나스닥100 커버드콜) ETF 3종 분배 이력, 총보수, 실부담비용 |
 | `data/prices.json` | JEPQ 일별 종가·분배 재투자 수정주가 (2022-05-04 상장 이후 전체) |
 | `data/tr_compare.json` | 배당 재투자 총수익(TR) 비교 차트용: JEPI·JEPQ·QQQ·SCHD·SPY 일별 지수 (JEPQ 첫 거래일 2022-05-04 = 100). SCHD·JEPQ·JEPI 트래커 세 곳이 같은 파일 |
@@ -53,7 +54,7 @@ SCHD와 달리 JPMorgan은 일반 파이썬 요청을 막지 않아 `curl_cffi`�
 - **지급일 환율**: 하나은행 매매기준율(다음금융). 지급일이 지나야 채워짐
 - **구성종목**: 매일 JPMorgan 공식 보유종목 엑셀을 받아 기준일이 새로우면 반영. ELN(주가연계채권, 나스닥100 콜옵션 매도 수익을 담는 상품)은 따로 묶어 비중을 보여 줌. 공식 파일을 10일 넘게 못 받으면 `확인 필요` 이슈
 - **월별 비중 기록**: 그 달 첫 공식 파일을 `holdings_monthly.json`에 추가. JPMorgan은 과거 보유종목 파일을 공개하지 않아 2026-10부터 쌓입니다. JEPQ는 정해진 지수 리밸런싱일이 없어 SCHD의 리밸런싱 기록은 없습니다
-- **N-PORT 분기말 기록**: 매주 월요일 SEC N-PORT 공시 목록을 확인해 새 분기말을 `basis: nport`로 추가(그 달에 공식 기록이 있으면 건너뜀). 구분: 주식(EC) / ELN(SN 중 제목에 ELN·linked to) / 현금(STIV). 증권대여 담보 MMF와 선물(평가손익만 있음)은 뺌. 비중은 공식 파일과 같게 시장가치 ÷ 포함한 줄 합계(100%)로 다시 계산(공시 `pctVal`은 순자산 대비라 합계가 100이 아님). N-PORT에는 섹터·티커가 없어 티커는 OpenFIGI, 섹터는 JPMorgan 공식 파일에 나온 종목만 붙이고 나머지는 '섹터 미확인'. OpenFIGI에 미국 줄이 없는 옛 ISIN은 `update.py`의 `FIGI_FIX`에 적음. 사이 달은 비워 둡니다(지어내지 않음). 수집에 실패하면 기존 값 유지, 최근 분기말 기록이 170일 넘게 새로워지지 않으면 `확인 필요` 이슈
+- **N-PORT 분기말 기록**: 매주 월요일 SEC N-PORT 공시 목록을 확인해 새 분기말을 `basis: nport`로 추가(그 달에 공식 기록이 있으면 건너뜀). 구분: 주식(EC) / ELN(SN 중 제목에 ELN·linked to) / 현금(STIV). 증권대여 담보 MMF와 선물(평가손익만 있음)은 뺌. 비중은 공식 파일과 같게 시장가치 ÷ 포함한 줄 합계(100%)로 다시 계산(공시 `pctVal`은 순자산 대비라 합계가 100이 아님). N-PORT에는 섹터·티커가 없어 티커는 OpenFIGI, 섹터는 JPMorgan 공식 섹터를 쓰고, 없는 종목은 `data/sector_map.json`(식별자 → 섹터, 출처)으로 보충: 위키백과 S&P 500 표의 GICS 섹터 → 상장폐지·인수 종목은 SEC EDGAR 업종코드(SIC) 환산 → 못 찾으면 '섹터 미확인'. 새 분기를 추가할 때 지도에 없는 종목만 자동 조회해 채움(현재 분류를 과거 분기에 적용). OpenFIGI에 미국 줄이 없는 옛 ISIN은 `update.py`의 `FIGI_FIX`에 적음. 사이 달은 비워 둡니다(지어내지 않음). 수집에 실패하면 기존 값 유지, 최근 분기말 기록이 170일 넘게 새로워지지 않으면 `확인 필요` 이슈
 - **공식 수익률**: 30일 SEC 수익률·12개월 롤링 분배수익률·분배수익률·NAV를 기준일과 함께 `data/meta.json`의 `official`에 저장. SEC 기준일이 7일 이상 새로워졌을 때만 갱신(매일 커밋 방지). 실패하면 기존 값 유지
 - **다음 분배 예정일**: JPMorgan 'ETF Dividend Calendar' PDF에서 JEPQ가 속한 그룹의 배당락·지급일을 읽어 `data/meta.json`의 `schedule`에 넣음. 올해·내년 PDF를 확인해 아직 없는 해만 읽습니다. 12월 자본이득 분배일은 `kind: capgain`으로 구분(자본이득이 없으면 지급되지 않을 수 있음)
 - **국내 JEPQ형 분배금**: FunETF 분배 이력

@@ -593,7 +593,7 @@ if MSX:
 M.freeze_panes=M.cell(hr+1,4)
 S2=wb.create_sheet('월별_섹터')
 S2['A1']='JEPQ 월별 섹터·ELN 비중 (분기말 SEC N-PORT + 매월 JPMorgan 공식)'; S2['A1'].font=f_t
-S2['A2']="SEC N-PORT에는 섹터가 없어 JPMorgan 공식 파일에 나온 종목만 섹터를 붙이고 나머지는 '섹터 미확인'. 분기말만 공개돼 사이 달은 줄이 없음"; S2['A2'].font=f_s
+S2['A2']="SEC N-PORT에는 섹터가 없어 JPMorgan 공식 섹터를 쓰고, 없는 종목은 위키백과 S&P 500 GICS 섹터(상장폐지·인수 종목은 SEC 업종코드 SIC 환산)로 보충(data/sector_map.json), 못 찾으면 '섹터 미확인'. 분기말만 공개돼 사이 달은 줄이 없음"; S2['A2'].font=f_s
 secs=[k for _,k in SK]+['섹터 미확인']
 header(S2,3,['월','기준일','출처']+secs+[ELN_K,'현금'],[9,12,14]+[11]*(len(secs)+2))
 for i,m in enumerate(MSX):

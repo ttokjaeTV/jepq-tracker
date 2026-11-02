@@ -470,6 +470,9 @@ def update_nport(force=False):
         if age >= NPORT_STALE_DAYS:
             errors.append(f"SEC N-PORT 최근 분기말 기록이 {age}일 전 — 새 분기 공시를 못 찾음")
     if added:
+        _, miss = HL.fill_sectors(monthly, sec_get)  # 섹터 보충: data/sector_map.json 먼저, 없는 종목만 위키백과·SEC SIC 조회
+        if miss:
+            notes.append(f"N-PORT 섹터를 못 찾은 종목: {', '.join(miss.values())}")
         HL.save_monthly(monthly)
         changed.append("holdings_monthly")
         notes.append("SEC N-PORT 분기말 보유종목 추가: " + ", ".join(added))

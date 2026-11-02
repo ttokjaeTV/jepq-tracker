@@ -774,7 +774,7 @@ const tailOrder=k=>k===ELN?1:k===CASH?2:0;
   const opts=rs=>[...rs].reverse().map(r=>`<option value="${r.month}">${ym(r.month)} (${md(r.asOf)})</option>`).join('');
   $('hmSel').innerHTML=(OF.length?`<optgroup label="JPMorgan 공식 (매월 처음 받은 파일)">${opts(OF)}</optgroup>`:'')+(NP.length?`<optgroup label="SEC N-PORT 분기말 공시">${opts(NP)}</optgroup>`:'');
   $('hmRebal').innerHTML=`JEPQ는 지수를 그대로 따라가지 않는 <b>액티브 ETF</b>라 정해진 리밸런싱일이 없습니다. JPMorgan은 과거 날짜의 보유종목 파일을 주지 않아, 이 트래커가 <b>${OF.length?OF[0].month:'-'}부터</b> 매월 처음 받은 공식 파일을 쌓아 갑니다.`
-    +(NP.length?` 그 이전은 JEPQ가 SEC에 내는 <b>N-PORT 공시</b>(${NP[0].month}~${NP[NP.length-1].month})로 채웠습니다. N-PORT는 <b>분기말(3·6·9·12월 말) 보유종목만 약 60일 뒤 공개</b>되므로 사이 달은 비워 둡니다. 비중은 공식 파일과 같게 '시장가치 ÷ 합계(100%)'로 다시 계산했고(공시 순자산 대비 %와 조금 다름), 증권대여 담보 MMF·선물은 뺐습니다. 섹터는 JPMorgan 공식 파일에 나온 종목만 알 수 있어 나머지는 '섹터 미확인'입니다.`:'');
+    +(NP.length?` 그 이전은 JEPQ가 SEC에 내는 <b>N-PORT 공시</b>(${NP[0].month}~${NP[NP.length-1].month})로 채웠습니다. N-PORT는 <b>분기말(3·6·9·12월 말) 보유종목만 약 60일 뒤 공개</b>되므로 사이 달은 비워 둡니다. 비중은 공식 파일과 같게 '시장가치 ÷ 합계(100%)'로 다시 계산했고(공시 순자산 대비 %와 조금 다름), 증권대여 담보 MMF·선물은 뺐습니다. SEC 기록에는 섹터가 없어, JPMorgan 공식 파일에 나온 종목은 그 섹터를 쓰고 나머지는 위키백과 S&P 500 표의 GICS 섹터(상장폐지·인수 종목은 SEC 업종코드 SIC로 환산)로 보충했습니다. 현재 분류를 과거 분기에 적용한 것이라 당시 분류와 다를 수 있고, 찾지 못한 종목은 '섹터 미확인'입니다.`:'');
   const sig=d=>{const r=Math.round(d*100)/100;const c=r>0?'up':r<0?'down':'flat';return{c,t:`${r>0?'+':r<0?'−':''}${Math.abs(r).toFixed(2)}%p`};};
   const draw=mo=>{
     const i=MS.findIndex(z=>z.month===mo), r=MS[i], p=i>0?{...MS[i-1],label:`${+MS[i-1].month.slice(5,7)}월`}:null;

@@ -17,6 +17,7 @@ import io
 import json
 import re
 from pathlib import Path
+from urllib.parse import quote_plus
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
@@ -199,6 +200,134 @@ def add_month(monthly, h):
     return True
 
 
+# ---------------------------------------------------------------- 섹터 보충 (SEC N-PORT 에는 섹터가 없다)
+# 순서: ① JPMorgan 공식 파일에 나온 섹터(holdings_monthly names) 그대로 ② data/sector_map.json ③ 위키백과 S&P 500 표의 GICS 섹터
+#       ④ SEC EDGAR 제출 정보의 SIC 코드 → 섹터 대응(상장폐지·인수 종목) ⑤ 못 찾으면 빈 값('섹터 미확인')
+# 섹터 이름은 JPMorgan 파일이 쓰는 GICS 11개 이름 그대로(새 이름 없음).
+SEC_UA = "ttokjaeTV research ttokjae@gmail.com"  # SEC 규칙: 연락처가 든 User-Agent, 초당 10회 이하
+WIKI_SP500 = "https://en.wikipedia.org/w/index.php?title=List_of_S%26P_500_companies&action=raw"
+SEC_TICKERS = "https://www.sec.gov/files/company_tickers.json"
+SEC_SUBMISSIONS = "https://data.sec.gov/submissions/CIK{c:010d}.json"
+SEC_SEARCH = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&type=10-K&owner=exclude&count=10&output=atom&company="
+GICS = {"Information Technology", "Health Care", "Financials", "Consumer Discretionary", "Communication Services",
+        "Industrials", "Consumer Staples", "Energy", "Utilities", "Real Estate", "Materials"}
+# SIC 코드 범위 → 섹터 (처음 맞는 줄). 옛 종목 보충용 거친 대응이라 출처에 SIC 번호를 남긴다.
+_SIC = [(3411, 3412, "Materials"), (3559, 3559, "Information Technology"), (4922, 4922, "Energy"),  # 금속캔·반도체장비·가스 송유관
+        (100, 999, "Consumer Staples"), (1000, 1099, "Materials"), (1200, 1399, "Energy"), (1400, 1499, "Materials"),
+        (1500, 1799, "Industrials"), (2000, 2199, "Consumer Staples"), (2200, 2599, "Consumer Discretionary"),
+        (2600, 2699, "Materials"), (2700, 2799, "Communication Services"), (2833, 2836, "Health Care"),
+        (2840, 2849, "Consumer Staples"), (2800, 2899, "Materials"), (2900, 2999, "Energy"),
+        (3000, 3199, "Consumer Discretionary"), (3200, 3399, "Materials"), (3400, 3569, "Industrials"),
+        (3570, 3579, "Information Technology"), (3580, 3599, "Industrials"), (3651, 3652, "Consumer Discretionary"),
+        (3600, 3659, "Industrials"), (3660, 3699, "Information Technology"), (3711, 3716, "Consumer Discretionary"),
+        (3700, 3799, "Industrials"), (3820, 3829, "Information Technology"), (3840, 3851, "Health Care"),
+        (3800, 3899, "Industrials"), (3900, 3999, "Consumer Discretionary"), (4000, 4799, "Industrials"),
+        (4800, 4899, "Communication Services"), (4950, 4959, "Industrials"), (4900, 4999, "Utilities"),
+        (5000, 5199, "Industrials"), (5400, 5499, "Consumer Staples"), (5912, 5912, "Consumer Staples"),
+        (5200, 5999, "Consumer Discretionary"), (6500, 6599, "Real Estate"), (6798, 6798, "Real Estate"),
+        (6000, 6799, "Financials"), (7000, 7299, "Consumer Discretionary"), (7310, 7319, "Communication Services"),
+        (7370, 7379, "Information Technology"), (7300, 7399, "Industrials"), (7800, 7899, "Communication Services"),
+        (7900, 7999, "Consumer Discretionary"), (8000, 8099, "Health Care"), (8200, 8299, "Consumer Discretionary"),
+        (8731, 8731, "Health Care"), (8700, 8799, "Industrials")]
+
+
+def sic_sector(sic):
+    sic = int(sic)
+    return next((s for lo, hi, s in _SIC if lo <= sic <= hi), "")
+
+
+def load_sector_map():
+    p = DATA / "sector_map.json"
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {"note": "", "map": {}}
+
+
+def save_sector_map(sm):
+    """종목 하나 = 한 줄 (커밋 차이를 작게)."""
+    sm["note"] = "N-PORT 종목 섹터 보충표. map = 기호 → [GICS 섹터(JPMorgan 이름), 출처]. 출처: wikipedia-sp500 · sec-sic:SIC번호"
+    c = lambda o: json.dumps(o, ensure_ascii=False, separators=(",", ":"))
+    rows = ",\n".join(f"{c(k)}:{c(v)}" for k, v in sorted(sm["map"].items()))
+    (DATA / "sector_map.json").write_text(f'{{"note":{c(sm["note"])},\n"map":{{\n{rows}\n}}}}\n', encoding="utf-8")
+
+
+def apply_sectors(monthly, sm):
+    """섹터가 빈 names 항목에만 sector_map 값을 넣는다(JPMorgan 공식 섹터는 그대로). 채운 종목 수를 돌려준다."""
+    n = 0
+    for sym, v in monthly["names"].items():
+        if not v[1] and sm["map"].get(sym):
+            v[1] = sm["map"][sym][0]
+            n += 1
+    return n
+
+
+def parse_wiki_sp500(text):
+    """위키백과 S&P 500 구성종목 표(wikitext) → {티커 또는 정리한 회사 이름: GICS 섹터}. 표 모양이 바뀌었으면 RuntimeError.
+    이름 키는 옛 ISIN 이 이상한 기호로 잡힌 종목(예: Linde plc)을 이름으로 찾을 때 쓴다."""
+    out = {}
+    for row in text.split("\n|-"):
+        m = re.search(r"Symbol\|([^}|]+)\}\}", row)
+        c = re.split(r"\n\|\|?", "\n" + row.strip())
+        if m and len(c) > 3 and c[3].strip() in GICS:
+            out[m.group(1).strip()] = c[3].strip()
+            out.setdefault(_sec_name_query(re.sub(r"\[\[(?:[^\]|]*\|)?|\]\]", "", c[2]))[0].lower(), c[3].strip())
+    if len(out) < 400:
+        raise RuntimeError(f"위키백과 S&P 500 표에서 {len(out)}종목만 읽음 — 형식 확인 필요")
+    return out
+
+
+def _sec_name_query(name):
+    """회사 이름 → EDGAR 검색어: 괄호·구두점·끝의 Inc/Corp 같은 말을 떼고, 없으면 앞 두 단어."""
+    w = re.sub(r"\(.*?\)|[^\w ]", " ", name).split()
+    while len(w) > 1 and w[-1].lower() in ("inc", "corp", "co", "ltd", "plc", "the", "holdings", "company", "nv", "sa"):
+        w.pop()
+    return [" ".join(w)] + ([" ".join(w[:2])] if len(w) > 2 else [])
+
+
+def resolve_sectors(missing, get):
+    """missing {기호: 이름} → {기호: [섹터, 출처]}. get(url) 은 requests 응답을 돌려주는 함수(SEC 요청 간격은 get 이 지킨다).
+    못 찾은 종목은 결과에 없다. 위키백과 표를 못 읽으면 SIC 로만 찾는다."""
+    out, wiki = {}, {}
+    try:
+        wiki = parse_wiki_sp500(get(WIKI_SP500).text)
+    except Exception:  # noqa: BLE001
+        pass
+    tickers = None
+    for sym, name in sorted(missing.items()):
+        key = sym if sym in wiki else _sec_name_query(name)[0].lower()
+        if key in wiki:
+            out[sym] = [wiki[key], "wikipedia-sp500" + ("" if key == sym else "(이름)")]
+            continue
+        try:
+            if tickers is None:
+                tickers = {v["ticker"]: v["cik_str"] for v in get(SEC_TICKERS).json().values()}
+            cik = tickers.get(sym.replace(".", "-"))
+            if not cik:  # 상장폐지·인수 종목: 이름으로 검색 (딱 한 회사로 좁혀진 경우만 — 여러 곳이면 이름을 알 수 없어 건너뜀)
+                for q in _sec_name_query(name):
+                    t = get(SEC_SEARCH + quote_plus(q)).text
+                    if "<conformed-name>" in t:
+                        cik = int(re.search(r"<cik>(\d+)</cik>", t).group(1))
+                        break
+            sic = cik and get(SEC_SUBMISSIONS.format(c=int(cik))).json().get("sic")
+            if sic and sic_sector(sic):
+                out[sym] = [sic_sector(sic), f"sec-sic:{sic}"]
+        except Exception:  # noqa: BLE001
+            continue
+    return out
+
+
+def fill_sectors(monthly, get):
+    """sector_map 을 먼저 보고, 없는 종목만 resolve_sectors 로 새로 조회해 sector_map 에 저장한 뒤 names 에 적용한다.
+    (monthly 는 호출한 쪽이 저장.) → (새로 붙인 종목 수, 못 찾은 {기호: 이름})"""
+    sm = load_sector_map()
+    apply_sectors(monthly, sm)
+    miss = {k: v[0] for k, v in monthly["names"].items() if not v[1]}
+    got = resolve_sectors(miss, get) if miss else {}
+    if got:
+        sm["map"].update(got)
+        save_sector_map(sm)
+        apply_sectors(monthly, sm)
+    return len(got), {k: v for k, v in miss.items() if k not in got}
+
+
 if __name__ == "__main__":  # 자체 점검: python scripts/holdings_lib.py
     sec = lambda cat, t, v: (f"<invstOrSec><name>{t}</name><title>{t}</title><balance>1</balance>"
                              f"<valUSD>{v}</valUSD><pctVal>{v}</pctVal><assetCat>{cat}</assetCat></invstOrSec>")
@@ -211,3 +340,12 @@ if __name__ == "__main__":  # 자체 점검: python scripts/holdings_lib.py
     s = official_holdings(d, rows, basis="nport")["summary"]
     assert (d, len(rows), s["stock"], s["eln"], s["cash"], s["elnCount"]) == ("2026-06-30", 53, 50.0, 45.0, 5.0, 2), s
     print("parse_nport ok")
+    assert (sic_sector(7372), sic_sector(2911), sic_sector(3559), sic_sector(6798), sic_sector(9995)) == (
+        "Information Technology", "Energy", "Information Technology", "Real Estate", "")
+    wk = "{| id=constituents\n|-\n! h" + "".join(f"\n|-\n|| {{{{NyseSymbol|T{i}}}}}\n|| [[Co {i} Inc.|Co {i}]]\n|| Energy \n|| x" for i in range(400))
+    w = parse_wiki_sp500(wk)
+    assert w["T7"] == "Energy" and w["co 7"] == "Energy", list(w)[:3]
+    mo = {"names": {"A": ["a", "Financials"], "B": ["b", ""], "C": ["c", ""]}}
+    assert apply_sectors(mo, {"map": {"A": ["Energy", "x"], "B": ["Materials", "x"]}}) == 1 and mo["names"] == {
+        "A": ["a", "Financials"], "B": ["b", "Materials"], "C": ["c", ""]}
+    print("sector helpers ok")
