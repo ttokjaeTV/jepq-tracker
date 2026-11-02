@@ -30,6 +30,7 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import holdings_lib as HL  # noqa: E402
+import tr_compare as TRC  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
@@ -562,6 +563,24 @@ def update_real_cost():
         notes.append(f"KOFIA 실부담비용 조회 실패: {e}")
 
 
+# ---------------------------------------------------------------- TR 비교 (5종)
+def update_tr_compare():
+    """JEPI·JEPQ·QQQ·SCHD·SPY 배당 재투자 비교 지수(data/tr_compare.json). scripts/tr_compare.py 참고.
+    7일마다 통째로 다시 받는다. 실패하면 기존 값을 두고, 14일 넘게 못 받으면 '확인 필요' 이슈."""
+    old = load("tr_compare") if (DATA / "tr_compare.json").exists() else None
+    age = (TODAY - dt.date.fromisoformat(old["asOf"])).days if old else 999
+    if age < TRC.REFRESH_DAYS:
+        return
+    try:
+        new = TRC.fetch(old)
+    except Exception as e:  # noqa: BLE001
+        (errors if age >= TRC.STALE_DAYS else notes).append(f"TR 비교(Yahoo 5종) 갱신 실패, 기존 값 유지 ({old and old['asOf']}): {str(e)[:200]}")
+        return
+    if new != old:
+        save("tr_compare", new)
+        changed.append("tr_compare")
+
+
 # ---------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser()
@@ -582,6 +601,7 @@ def main():
         check_schedule(meta, divs)
     if a.only in (None, "dividends", "prices"):
         prices = update_prices(divs, force="dividends" in changed)
+        update_tr_compare()
         n0 = len(changed)
         fill_close(divs, prices)
         fill_fx(divs)

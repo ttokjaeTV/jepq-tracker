@@ -620,7 +620,45 @@ for i,x in enumerate(SCH):
         c=SC.cell(rr,j,v); c.font=f_n; c.border=bd
         if j in (2,3): c.number_format=DATE
 
-wb._sheets=[wb[n] for n in ['사용법','최신월_요약','JEPQ_배당','연도별','월별표','국내JEPQ형_분배','국내JEPQ형_비교','구성종목','월별_비중','월별_섹터','분배_일정','주가_월별','차트데이터']]
+# ---------------- TR비교 (JEPI·JEPQ·QQQ·SCHD·SPY, 화면 'TR 비교' 차트·표와 같은 data/tr_compare.json) ----------------
+import tr_compare as TRC
+TRJ=J('tr_compare'); TT=TRJ['tickers']; TRR=TRJ['rows']; TR_ME='JEPQ'
+TRCOL={'JEPI':'2A78D6','JEPQ':'EB6834','QQQ':'1BAF7A','SCHD':'EDA100','SPY':'E87BA4'}  # 화면 --tr-* 라이트 색
+TS=wb.create_sheet('TR비교')
+TS['A1']='JEPI·JEPQ·QQQ·SCHD·SPY 배당 재투자 총수익(TR) 비교'; TS['A1'].font=f_t
+TS['A2']=f"시작일 {TRJ['start']}(5종 중 가장 늦게 상장한 JEPQ 첫 거래일) = 100 · 기준일 {TRJ['asOf']} · 출처: {TRJ['source']} · 배당 재투자 가정, 세금·환율 미반영"; TS['A2'].font=f_s
+TS['A3']='1년·3년은 기준일에서 그만큼 거슬러 올라간 날 이후 첫 거래일부터 (화면 기간 버튼과 같은 규칙) · 연환산 = (1+누적)^(365.25/일수)-1'; TS['A3'].font=f_s
+header(TS,4,['구간','시작일','종료일','항목']+TT,[12,11,11,13]+[10]*len(TT))
+D0=13  # 일별 지수 첫 행
+sr=5
+for lbl,yrs in (('1년',1),('3년',3),('시작일 이후',0)):
+    i0,i1,_=TRC.summary(TRJ,yrs)
+    items=[('누적 총수익',None)]+([] if yrs==1 else [('연환산(CAGR)',sr)])
+    for k,(it,cum_row) in enumerate(items):
+        TS.cell(sr,1,lbl if k==0 else '').font=f_b
+        TS.cell(sr,2,f'=A{D0+i0}').number_format=DATE; TS.cell(sr,3,f'=A{D0+i1}').number_format=DATE
+        TS.cell(sr,4,it).font=f_n
+        for j in range(len(TT)):
+            col=L(2+j); tc=L(5+j)
+            f=f'={col}{D0+i1}/{col}{D0+i0}-1' if cum_row is None else f'=(1+{tc}{cum_row})^(365.25/(C{sr}-B{sr}))-1'
+            c=TS.cell(sr,5+j,f); c.number_format=PCT; c.font=Font(name=FONT,size=10,bold=TT[j]==TR_ME)
+        for col in range(1,5+len(TT)): TS.cell(sr,col).border=bd
+        sr+=1
+header(TS,D0-1,['날짜']+[f'{t}\n(시작일=100)' for t in TT])
+for i,r_ in enumerate(TRR):
+    rr=D0+i
+    TS.cell(rr,1,dt.date.fromisoformat(r_[0])).number_format=DATE
+    for j,v in enumerate(r_[1:]):
+        c=TS.cell(rr,2+j,v); c.number_format='0.00'; c.font=f_in
+tc_=LineChart(); tc_.title='배당 재투자 총수익 지수 (시작일 = 100)'; tc_.height=10; tc_.width=26
+tc_.add_data(Reference(TS,min_col=2,max_col=1+len(TT),min_row=D0-1,max_row=D0+len(TRR)-1),titles_from_data=True)
+tc_.set_categories(Reference(TS,min_col=1,min_row=D0,max_row=D0+len(TRR)-1))
+for t,s_ in zip(TT,tc_.series):
+    s_.graphicalProperties=GraphicalProperties(); s_.graphicalProperties.line=LineProperties(solidFill=TRCOL[t],w=28000 if t==TR_ME else 15000); s_.marker.symbol='none'
+tc_.y_axis.numFmt='0'; tc_.x_axis.number_format='yy.mm'; tc_.x_axis.tickLblSkip=126; tc_.y_axis.delete=False; tc_.x_axis.delete=False
+TS.add_chart(tc_,'K4')
+
+wb._sheets=[wb[n] for n in ['사용법','최신월_요약','JEPQ_배당','연도별','월별표','국내JEPQ형_분배','국내JEPQ형_비교','구성종목','월별_비중','월별_섹터','분배_일정','주가_월별','TR비교','차트데이터']]
 wb.calculation.fullCalcOnLoad=True
 out=ROOT/'downloads'/'jepq_dividend_tracker.xlsx'
 wb.save(out); print(out)

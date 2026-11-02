@@ -14,17 +14,20 @@ html{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!i
   --accent:#A8661B; --accent-soft:#F6E9D7; --bar:#C98A3A; --bar-partial:#E7C79E; --est:#F3E3CB; --est-line:#A8661B; --avg:#2F5D8A; --other:#CBD3D8;
   --p1:#A8661B; --p2:#C98A3A; --p3:#E0B36A; --p4:#2F5D8A; --p5:#4F7FAF; --p6:#86A9CC; --p7:#17784A; --p8:#4E9E72; --p9:#8CC3A2; --p10:#7A5C8E; --eln:#B5485A;
   --up:#17784A; --up-soft:#E2F2E9; --down:#B4322B; --down-soft:#F8E4E2;
+  --tr-jepi:#2a78d6; --tr-jepq:#eb6834; --tr-qqq:#1baf7a; --tr-schd:#eda100; --tr-spy:#e87ba4;
   --f-body:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   --f-num:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#11181D; --surface:#182229; --ink:#E6ECEF; --muted:#94A4AE; --line:#2A3740; --soft:#1E2A32;
   --accent:#E3A55A; --accent-soft:#3A2C1B; --bar:#D79A4E; --bar-partial:#6B5132; --est:#3A2E20; --est-line:#E3A55A; --avg:#8DB4DE; --other:#3A4852; --eln:#E07A8A;
-  --up:#5CC48D; --up-soft:#173327; --down:#F0867E; --down-soft:#3B1E1C; color-scheme:dark}}
+  --up:#5CC48D; --up-soft:#173327; --down:#F0867E; --down-soft:#3B1E1C;
+  --tr-jepi:#3987e5; --tr-jepq:#d95926; --tr-qqq:#199e70; --tr-schd:#c98500; --tr-spy:#d55181; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#11181D; --surface:#182229; --ink:#E6ECEF; --muted:#94A4AE; --line:#2A3740; --soft:#1E2A32;
   --accent:#E3A55A; --accent-soft:#3A2C1B; --bar:#D79A4E; --bar-partial:#6B5132; --est:#3A2E20; --est-line:#E3A55A; --avg:#8DB4DE; --other:#3A4852; --eln:#E07A8A;
-  --up:#5CC48D; --up-soft:#173327; --down:#F0867E; --down-soft:#3B1E1C; color-scheme:dark}
+  --up:#5CC48D; --up-soft:#173327; --down:#F0867E; --down-soft:#3B1E1C;
+  --tr-jepi:#3987e5; --tr-jepq:#d95926; --tr-qqq:#199e70; --tr-schd:#c98500; --tr-spy:#d55181; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;letter-spacing:-.005em;word-break:keep-all;overflow-wrap:break-word}
 p,.cap,.s,.hint,.sub,.en,dd,dt,li{text-wrap:pretty}
@@ -193,6 +196,15 @@ tr.sum td{border-top:1px solid var(--ink);font-weight:700}
 #qtable{min-width:960px;font-size:13px} #qtable th,#qtable td{padding-left:5px;padding-right:5px} #qtable td .d{white-space:nowrap}
 .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+/* TR 비교 (5종) */
+.trtable{margin-top:12px;min-width:300px}
+@media (max-width:420px){.trtable th,.trtable td{padding:7px 5px}.trtable td{font-size:13px}}
+.trtable th small{display:block;font-weight:500;font-size:11px}
+.trtable td small{display:block;font-size:11.5px;color:var(--muted);font-weight:500}
+.trtable tr.mine td{font-weight:700}
+.trtable td i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.legend b{color:var(--ink);font-weight:700}
+.trtip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
 </style>
 
 </head>
@@ -230,6 +242,19 @@ tr.sum td{border-top:1px solid var(--ink);font-weight:700}
       <div class="legend"><span><i style="background:var(--ink);height:2px;vertical-align:4px"></i>주가 (종가)</span><span><i style="background:var(--up);height:2px;vertical-align:4px"></i>분배 재투자 시 (같은 출발점에서 분배금을 다시 산 경우)</span></div>
     </div>
     <span class="cap" id="pcap"></span>
+  </section>
+  <section class="sec" id="trSec" data-hero="JEPQ">
+    <div class="sec-head"><h2>배당 재투자 총수익 비교: JEPI, JEPQ, QQQ, SCHD, SPY</h2>
+      <div class="seg" role="group" aria-label="비교 기간 선택" id="trange">
+        <button data-y="1" aria-pressed="false">1년</button><button data-y="3" aria-pressed="false">3년</button><button data-y="0" aria-pressed="true">전체</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="scroll" style="position:relative"><svg id="trchart" role="img" aria-label="JEPI·JEPQ·QQQ·SCHD·SPY 배당 재투자 누적 수익률 비교 선그래프"></svg><div class="ptip trtip" id="trtip" hidden></div></div>
+      <div class="legend" id="trlegend"></div>
+      <div class="scroll"><table class="trtable" id="trtable"></table></div>
+    </div>
+    <span class="cap" id="trcap"></span>
   </section>
 
   <section class="sec">
@@ -325,11 +350,13 @@ tr.sum td{border-top:1px solid var(--ink);font-weight:700}
 
 <script>
 let COST={},COST_SRC='',LISTED={},DIVS,KR,HOLD,HOLDJ,HM,AS_OF_KR,WHT,FEES,NAMES,TIMING,INDEX,ORDER,META,PRICES;
+let TRC;
 async function boot(){
   try{
     const get=n=>fetch('data/'+n+'.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw new Error(n+' '+r.status);return r.json();});
     const [d,k,h,m,pr]=await Promise.all(['dividends','kr_etf','holdings','meta','prices'].map(get));
     HM=await get('holdings_monthly').catch(()=>null);
+    TRC=await get('tr_compare').catch(()=>null);
     PRICES=pr; META=m; WHT=m.withholding; DIVS=d; HOLDJ=h;
     ORDER=k.order; KR={}; FEES={}; NAMES={}; TIMING={}; INDEX={};
     COST_SRC=k.cost_source||''; ORDER.forEach(c=>{const e=k.etfs[c]; COST[c]=e.cost||null; KR[c]=e.history; LISTED[c]=(e.listed||'').replace(/-/g,''); FEES[c]=e.fee; NAMES[c]=e.name; TIMING[c]=e.timing; INDEX[c]=e.index||'';});
@@ -492,6 +519,64 @@ $('stats').innerHTML=S.map(([t,v,c,s,x])=>`<div class="stat"><span class="t">${t
   const custom=()=>{let f=$('pFrom').value,tt=$('pTo').value; if(!f||!tt)return; if(f>tt)[f,tt]=[tt,f]; press(null); draw(f,tt);};
   $('pFrom').addEventListener('change',custom); $('pTo').addEventListener('change',custom);
   preset(0);
+})();
+
+// ---- TR 비교 (JEPI·JEPQ·QQQ·SCHD·SPY, 같은 날 0%에서 출발) — 세 트래커 같은 코드, 데이터는 data/tr_compare.json
+(function(){
+  const sec=$('trSec'); if(!TRC||!TRC.rows||TRC.rows.length<2){sec.hidden=true;return;}
+  const T=TRC.tickers, R=TRC.rows, HERO=sec.dataset.hero, last=R[R.length-1];
+  const col=t=>`var(--tr-${t.toLowerCase()})`;
+  const fmtD=s=>s.slice(0,4)+'.'+s.slice(5,7)+'.'+s.slice(8,10);
+  const ord=T.filter(t=>t!==HERO).concat(T.filter(t=>t===HERO)); // 이 트래커 종목을 맨 위에 그린다
+  // 기간 시작 = 마지막 거래일에서 n년 전 날짜 이후 첫 거래일 (scripts/tr_compare.py period_start 와 같은 규칙)
+  const startIdx=yrs=>{if(!yrs)return 0;const d=new Date(last[0]);d.setFullYear(d.getFullYear()-yrs);const f=d.toISOString().slice(0,10);const i=R.findIndex(r=>r[0]>=f);return i<0?0:i;};
+  const summ=yrs=>{const i0=startIdx(yrs), a=R[i0], yr=(new Date(last[0])-new Date(a[0]))/(365.25*864e5);
+    return {from:a[0], v:T.map((t,j)=>{const c=last[j+1]/a[j+1]-1; return [c, yrs!==1&&yr>=1?Math.pow(1+c,1/yr)-1:null];})};};
+  $('trcap').textContent=`${fmtD(TRC.asOf)} 종가 기준 · 시작일 ${fmtD(TRC.start)}(5종 중 가장 늦게 상장한 JEPQ의 첫 거래일) = 0% · 출처: ${TRC.source} · 배당 재투자 가정, 세금·환율 미반영 · 1년·3년 버튼은 그 기간 첫 거래일을 0%로 다시 맞춥니다 · 지난 수익률이며 앞으로의 수익을 뜻하지 않습니다.`;
+  $('trlegend').innerHTML=T.map(t=>`<span><i style="background:${col(t)}"></i>${t===HERO?`<b>${t} ${TRC.names[t]} (이 트래커)</b>`:`${t} ${TRC.names[t]}`}</span>`).join('');
+  const P=[[1,'1년'],[3,'3년'],[0,'시작일 이후']].map(([y,l])=>[l,summ(y)]);
+  $('trtable').innerHTML=`<thead><tr><th>누적 총수익</th>${P.map(([l,s])=>`<th>${l}<small>${fmtD(s.from)}~</small></th>`).join('')}</tr></thead><tbody>`
+    +T.map((t,j)=>`<tr${t===HERO?' class="mine"':''}><td><i style="background:${col(t)}"></i>${t}</td>${P.map(([l,s])=>{const [c,g]=s.v[j];return `<td>${pct(c,1)}${g!=null?`<small>연 ${pct(g,1)}</small>`:''}</td>`;}).join('')}</tr>`).join('')+'</tbody>';
+  function draw(yrs){
+    const sub=R.slice(startIdx(yrs)), b=sub[0], end=sub[sub.length-1];
+    const v=(r,k)=>r[k]/b[k]-1;
+    const step=Math.max(1,Math.ceil(sub.length/700)), pts=sub.filter((r,i)=>i%step===0||i===sub.length-1);
+    const W=1000,H=340,pl=52,pr2=112,pt=16,pb=30;
+    const vals=pts.flatMap(r=>T.map((t,j)=>v(r,j+1))); let lo=Math.min(0,...vals),hi=Math.max(0,...vals);
+    const stp=[0.05,0.1,0.2,0.25,0.5,1].find(s=>(hi-lo)/s<=7)||1;
+    const g0=Math.floor(lo/stp+1e-9), g1=Math.ceil(hi/stp-1e-9); lo=g0*stp; hi=g1*stp;
+    const t0=+new Date(pts[0][0]), t1=+new Date(end[0]);
+    const xS=s=>pl+(W-pl-pr2)*((+new Date(s))-t0)/(t1-t0), yS=x=>pt+(H-pt-pb)*(hi-x)/(hi-lo);
+    let s='';
+    for(let g=g0;g<=g1;g++){const y=yS(g*stp);s+=`<line x1="${pl}" x2="${W-pr2}" y1="${y}" y2="${y}" stroke="${g?'var(--line)':'var(--muted)'}"/><text x="${pl-8}" y="${y+4}" text-anchor="end" font-size="11">${pct(g*stp,0)}</text>`;}
+    const y0=+pts[0][0].slice(0,4), y1=+end[0].slice(0,4), every=Math.max(1,Math.ceil((y1-y0+1)/12)), days=(t1-t0)/864e5;
+    if(days<=500){const mstep=days<=120?1:2;for(let m=0;m<18;m++){const d=new Date(pts[0][0]);d.setDate(1);d.setMonth(d.getMonth()+m+1);const ds=d.toISOString().slice(0,10);if(ds>end[0])break;if(m%mstep)continue;const x=xS(ds);s+=`<line x1="${x}" x2="${x}" y1="${pt}" y2="${H-pb}" stroke="var(--line)" stroke-dasharray="2 4"/><text x="${x}" y="${H-pb+16}" text-anchor="middle" font-size="11">${ds.slice(2,4)}.${ds.slice(5,7)}</text>`;}}
+    else for(let y=y0+1;y<=y1;y++){if((y-y0-1)%every)continue;const x=xS(`${y}-01-01`);s+=`<line x1="${x}" x2="${x}" y1="${pt}" y2="${H-pb}" stroke="var(--line)" stroke-dasharray="2 4"/><text x="${x}" y="${H-pb+16}" text-anchor="middle" font-size="11">'${String(y).slice(2)}</text>`;}
+    const lx=xS(end[0]);
+    ord.forEach(t=>{const k=T.indexOf(t)+1;
+      s+=`<path d="${pts.map((r,i)=>`${i?'L':'M'}${xS(r[0]).toFixed(1)} ${yS(v(r,k)).toFixed(1)}`).join('')}" fill="none" stroke="${col(t)}" stroke-width="${t===HERO?2.8:1.6}" stroke-linejoin="round"/>`;});
+    ord.forEach(t=>{const k=T.indexOf(t)+1; s+=`<circle cx="${lx}" cy="${yS(v(end,k))}" r="${t===HERO?4:3}" fill="${col(t)}" stroke="var(--surface)" stroke-width="1.5"/>`;});
+    // 끝 라벨: 위에서부터 14px 이상 벌린다 (글자는 잉크색, 색 표시는 작은 네모)
+    const lab=T.map((t,j)=>({t,val:v(end,j+1),y:yS(v(end,j+1))})).sort((a,c)=>a.y-c.y);
+    lab.forEach((a,i)=>{a.y=Math.max(a.y,i?lab[i-1].y+14:pt+4);});
+    for(let i=lab.length-1;i>=0;i--){const a=lab[i];a.y=Math.min(a.y,i<lab.length-1?lab[i+1].y-14:H-pb);}
+    lab.forEach(a=>{s+=`<rect x="${lx+8}" y="${a.y-8}" width="8" height="8" rx="2" fill="${col(a.t)}"/><text x="${lx+20}" y="${a.y}" font-size="11" ${a.t===HERO?'font-weight="700" ':''}style="fill:var(--ink)">${a.t} ${pct(a.val,0)}</text>`;});
+    s+=`<line id="trcross" x1="0" x2="0" y1="${pt}" y2="${H-pb}" stroke="var(--muted)" stroke-width="1" visibility="hidden"/>`;
+    const svg=$('trchart'); svg.setAttribute('viewBox',`0 0 ${W} ${H}`); svg.style.width='100%'; svg.style.minWidth='600px'; svg.innerHTML=s;
+    const hide=()=>{$('trtip').hidden=true;const c=document.getElementById('trcross');if(c)c.setAttribute('visibility','hidden');};
+    svg.onpointermove=e=>{const bb=svg.getBoundingClientRect(), x=(e.clientX-bb.left)*W/bb.width;
+      if(x<pl||x>W-pr2){hide();return;}
+      const t=t0+(x-pl)/(W-pl-pr2)*(t1-t0); let a=0,z=sub.length-1;
+      while(z-a>1){const m=(a+z)>>1; (+new Date(sub[m][0])<=t)?a=m:z=m;}
+      const r=sub[a], cx=xS(r[0]), c=document.getElementById('trcross'); c.setAttribute('x1',cx);c.setAttribute('x2',cx);c.setAttribute('visibility','visible');
+      const tip=$('trtip'); tip.hidden=false;
+      tip.innerHTML=`<b>${fmtD(r[0])}</b>`+T.map((tk,j)=>[tk,v(r,j+1)]).sort((p,q)=>q[1]-p[1]).map(([tk,x2])=>`<br><i style="background:${col(tk)}"></i>${tk===HERO?`<b>${tk} ${pct(x2,1)}</b>`:`${tk} ${pct(x2,1)}`}`).join('');
+      const px=cx/W*bb.width, w=tip.offsetWidth; tip.style.left=(px+12+w>bb.width?Math.max(0,px-12-w):px+12)+'px'; tip.style.top='8px';};
+    svg.onpointerleave=hide;
+  }
+  const press=b=>document.querySelectorAll('#trange button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+  document.querySelectorAll('#trange button').forEach(b=>b.addEventListener('click',()=>{press(b);draw(+b.dataset.y);}));
+  draw(0);
 })();
 
 // ---- 예상치 (진행 중인 해의 남은 달 = 그해 확정 월 단순 평균)
