@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-06",
+ "updated": "2026-11-07",
  "splits": [],
  "names_ko": {
   "AAPL": "애플",
@@ -69,29 +69,29 @@
  "jepq_fee": 0.0035,
  "official": {
   "sec_yield": {
-   "value": 0.1147,
-   "asOf": "2026-10-29"
+   "value": 0.1246,
+   "asOf": "2026-11-05"
   },
   "rolling_12m": {
-   "value": 0.1172,
-   "asOf": "2026-10-30"
+   "value": 0.1187,
+   "asOf": "2026-11-06"
   },
   "dist_yield": {
-   "value": 0.116,
-   "asOf": "2026-10-30"
+   "value": 0.1207,
+   "asOf": "2026-11-06"
   },
   "nav": {
-   "value": 57.5556,
-   "asOf": "2026-10-30"
+   "value": 54.3568,
+   "asOf": "2026-11-06"
   },
   "aum": {
-   "value": 42491860922,
-   "asOf": "2026-10-30"
+   "value": 40654826914,
+   "asOf": "2026-11-06"
   },
   "expense": 0.0035,
   "source": "J.P. Morgan Asset Management JEPQ 상품 데이터",
   "url": "https://am.jpmorgan.com/us/en/asset-management/adv/products/jpmorgan-nasdaq-equity-premium-income-etf-etf-shares-46654q203",
-  "checked": "2026-11-01"
+  "checked": "2026-11-07"
  },
  "schedule": {
   "rows": [
