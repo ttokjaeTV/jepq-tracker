@@ -160,11 +160,11 @@
    "cost": {
     "basis": "2026-10-30",
     "total_fee": 0.25,
-    "other": 0.09,
-    "ter": 0.34,
+    "other": 0.0911,
+    "ter": 0.3411,
     "trading": 0.113,
     "sales": 0.0,
-    "real": 0.453,
+    "real": 0.4541,
     "kofia_code": "K55301EB5578"
    }
   },
@@ -565,11 +565,11 @@
    "cost": {
     "basis": "2026-10-30",
     "total_fee": 0.37,
-    "other": 0.1,
-    "ter": 0.47,
+    "other": 0.0998,
+    "ter": 0.4698,
     "trading": 0.0237,
     "sales": 0.0,
-    "real": 0.4937,
+    "real": 0.4935,
     "kofia_code": "K55301DX0400"
    }
   }
