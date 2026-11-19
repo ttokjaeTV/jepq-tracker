@@ -207,9 +207,10 @@ tr.sum td{border-top:1px solid var(--ink);font-weight:700}
 .legend b{color:var(--ink);font-weight:700}
 .trtip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
   .scroll-hint { display: none; margin: 10px 0 6px; text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); }
-  @media (max-width: 710px) { .scroll-hint.sh-710 { display: block; } }
-  @media (max-width: 990px) { .scroll-hint.sh-990 { display: block; } }
-  @media (max-width: 1030px) { .scroll-hint.sh-1030 { display: block; } }
+  @media (max-width: 1024px) { .scroll-hint.sh-1024 { display: block; } }
+  @media (max-width: 988px) { .scroll-hint.sh-988 { display: block; } }
+  @media (max-width: 704px) { .scroll-hint.sh-704 { display: block; } }
+  @media print { .scroll-hint { display: none !important; } }
 </style>
 
 </head>
@@ -290,7 +291,7 @@ tr.sum td{border-top:1px solid var(--ink);font-weight:700}
         <button id="u-usd" aria-pressed="true">USD</button><button id="u-krw" aria-pressed="false">원화 세전</button><button id="u-net" aria-pressed="false">원화 세후</button>
       </div>
     </div>
-    <p class="scroll-hint sh-1030" aria-hidden="true">← 옆으로 밀어 보세요 →</p>
+    <p class="scroll-hint sh-1024" aria-hidden="true">← 옆으로 밀어 보세요 →</p>
     <div class="panel scroll"><table id="qtable" class="mtable"></table></div>
     <span class="cap" id="qcap"></span>
   </section>
@@ -337,10 +338,10 @@ tr.sum td{border-top:1px solid var(--ink);font-weight:700}
 
   <section class="sec">
     <div class="sec-head"><h2>국내 JEPQ형(나스닥100 커버드콜) ETF 비교</h2><span class="cap" id="krAsOf"></span></div>
-    <p class="scroll-hint sh-990" aria-hidden="true">← 옆으로 밀어 보세요 →</p>
+    <p class="scroll-hint sh-988" aria-hidden="true">← 옆으로 밀어 보세요 →</p>
     <div class="panel scroll"><table id="krtable"></table></div>
     <span class="cap" id="krCostCap"></span>
-    <p class="scroll-hint sh-710" aria-hidden="true">← 옆으로 밀어 보세요 →</p>
+    <p class="scroll-hint sh-704" aria-hidden="true">← 옆으로 밀어 보세요 →</p>
     <div class="panel"><div class="scroll"><table id="krq"></table></div><button type="button" class="htoggle" id="krqToggle" aria-expanded="false"></button></div>
     <span class="cap">12개월 분배율 = 12개월 분배금 합계 ÷ 기준 가격. 기준 가격은 국내 ETF는 최근 분배 시점 1좌 가격(최근 분배금 ÷ 회차 분배율로 역산), JEPQ는 최근 배당락일 종가입니다. 회차별 분배율을 더한 값이 아닙니다. JEPQ 행은 기준일 이전 마지막 배당락까지 12회라, 위쪽 요약의 TTM(최신 분배 포함)과 기준일 이후 분배만큼 다를 수 있습니다. 표의 작은 숫자는 기준 가격입니다.</span>
     <span class="cap">월 합계는 국내 ETF는 분배 기준일(매월 말)이 속한 달, JEPQ는 지급일이 속한 달로 묶었습니다. 국내 ETF의 월말 기준일 분배금은 다음 달 초에 들어오므로, 같은 줄의 JEPQ 분배와 입금 시기가 비슷합니다. 작은 숫자는 작년 같은 달 대비입니다.</span>
