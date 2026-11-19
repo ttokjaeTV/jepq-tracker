@@ -207,6 +207,7 @@ tr.sum td{border-top:1px solid var(--ink);font-weight:700}
 .legend b{color:var(--ink);font-weight:700}
 .trtip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
   .scroll-hint { display: none; margin: 10px 0 6px; text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); }
+  @media (max-width: 364px) { .scroll-hint.sh-364 { display: block; } }
   @media (max-width: 1024px) { .scroll-hint.sh-1024 { display: block; } }
   @media (max-width: 988px) { .scroll-hint.sh-988 { display: block; } }
   @media (max-width: 704px) { .scroll-hint.sh-704 { display: block; } }
@@ -258,6 +259,7 @@ tr.sum td{border-top:1px solid var(--ink);font-weight:700}
     <div class="panel">
       <div class="scroll" style="position:relative"><svg id="trchart" role="img" aria-label="JEPI·JEPQ·QQQ·SCHD·SPY 배당 재투자 누적 수익률 비교 선그래프"></svg><div class="ptip trtip" id="trtip" hidden></div></div>
       <div class="legend" id="trlegend"></div>
+      <p class="scroll-hint sh-364" aria-hidden="true">← 옆으로 밀어 보세요 →</p>
       <div class="scroll"><table class="trtable" id="trtable"></table></div>
     </div>
     <span class="cap" id="trcap"></span>
